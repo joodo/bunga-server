@@ -27,7 +27,7 @@ export default function Home() {
     }, [])
 
     function loadQR() {
-        axios.get('/api/qr').then(response => {
+        axios.get('/api/bilibili/qr').then(response => {
             if (response.status != 200) {
                 console.error(response.data);
                 return;
@@ -41,7 +41,7 @@ export default function Home() {
     }
 
     async function pull() {
-        const response = await axios.get(`/api/pull?qrcode_key=${key}`);
+        const response = await axios.get(`/api/bilibili/pull?qrcode_key=${key}`);
 
         switch (response.data['status']) {
             case 0:
