@@ -32,6 +32,6 @@ export default async function handler(
             default: throw ('Method not allowed');
         }
     } catch (err) {
-        return res.status(400).json({ "message": err.toString() });
+        return res.status(400).json({ "message": err as String });
     }
 }
