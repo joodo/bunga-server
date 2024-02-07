@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { md5 } from 'js-md5';
 import { sql } from "@vercel/postgres";
 
 export default async function handler(
@@ -9,13 +8,13 @@ export default async function handler(
     try {
         switch (req.method) {
             case 'POST': {
-                console.log(req.body['text']);
                 const text = req.body['text'];
-                const hash = md5.base64(text).replaceAll('=', '');
+                const hash = req.body['hash'];
+                if (!text || !hash) throw '"hash" and "text" field are needed.';
+
                 await sql`INSERT INTO hash_string (hash, text) VALUES (${hash}, ${text});`;
                 return res.status(201).json({
                     message: 'success',
-                    data: { hash, message: text },
                 });
             }
             case 'GET': {
@@ -37,17 +36,4 @@ export default async function handler(
             return res.status(400).json({ "message": err.message });
         }
     }
-}
-
-var makeCRCTable = function () {
-    var c;
-    var crcTable = [];
-    for (var n = 0; n < 256; n++) {
-        c = n;
-        for (var k = 0; k < 8; k++) {
-            c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
-        }
-        crcTable[n] = c;
-    }
-    return crcTable;
 }
