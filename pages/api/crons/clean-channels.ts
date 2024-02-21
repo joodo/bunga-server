@@ -16,6 +16,7 @@ export default async function handler(
     const filter = { last_message_at: { $lte: new Date(Date.now() - 60 * 60 * 1000) } };
 
     const channels = await serverClient.queryChannels(
+        // @ts-ignore
         filter,
         undefined,
         {
