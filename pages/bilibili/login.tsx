@@ -72,7 +72,7 @@ export default function Home() {
                 <Canvas
                     text={url}
                     options={{
-                        level: 'M',
+                        errorCorrectionLevel: 'M',
                         margin: 3,
                         scale: 4,
                         width: 200,
