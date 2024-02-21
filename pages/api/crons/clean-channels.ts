@@ -13,7 +13,7 @@ export default async function handler(
     const api_secret = process.env.STEAMIO_SECRET;
     const serverClient = StreamChat.getInstance(api_key, api_secret);
 
-    const filter = { last_message_at: { $lte: new Date(Date.now() - 60 * 60 * 1000) } };
+    const filter = { last_message_at: { $lte: new Date(Date.now() - 24 * 60 * 60 * 1000) } };
 
     const channels = await serverClient.queryChannels(
         // @ts-ignore
