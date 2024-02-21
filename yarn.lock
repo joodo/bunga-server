@@ -2460,7 +2460,7 @@ source-map-js@^1.0.2:
   resolved "https://registry.npmmirror.com/source-map-js/-/source-map-js-1.0.2.tgz#adbc361d9c62df380125e7f161f71c826f1e490c"
   integrity sha512-R0XvVJ9WusLiqTCEiGCmICCMplcCkIwwR11mOSD9CR5u+IXYdiseeEuXCVAjS54zqwkLcPNnmU4OeJ6tUrWhDw==
 
-stream-chat@^8.10.0:
+stream-chat@^8.16.0:
   version "8.16.0"
   resolved "https://registry.npmmirror.com/stream-chat/-/stream-chat-8.16.0.tgz#3718812815251315b28f75c4002f0a0d62f73bb8"
   integrity sha512-j5GDgCmae4k59titjzePvihfVoVSlRW8NvP7uXfxbfMlsmGfcbYl08IaAwSsW6NC44doZyIjOt7v/v2QyCcP4A==
