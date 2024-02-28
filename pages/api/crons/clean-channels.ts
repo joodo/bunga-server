@@ -5,6 +5,7 @@ export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse,
 ) {
+    console.info(req.headers['Authorization']);
     if (req.headers['Authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
         return res.status(401).end('Unauthorized');
     }
