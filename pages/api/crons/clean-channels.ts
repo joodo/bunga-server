@@ -5,9 +5,8 @@ export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse,
 ) {
-    console.info(req.headers);
-    if (req.headers['Authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
-        return res.status(401).end('Unauthorized');
+    if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+        return res.status(200).json({ success: false });
     }
 
     const api_key = process.env.STEAMIO_KEY!;
@@ -36,5 +35,5 @@ export default async function handler(
     console.info(`Delete channels: ${deleteCids}`);
     await serverClient.deleteChannels(deleteCids, { hard_delete: true });
 
-    res.status(200).json({ message: 'success' });
+    res.status(200).json({ success: true });
 }
