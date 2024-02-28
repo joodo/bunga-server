@@ -33,7 +33,10 @@ export default async function handler(
         }
     }
     console.info(`Delete channels: ${deleteCids}`);
-    await serverClient.deleteChannels(deleteCids, { hard_delete: true });
+
+    if (deleteCids.length > 0) {
+        await serverClient.deleteChannels(deleteCids, { hard_delete: true });
+    }
 
     res.status(200).json({ success: true });
 }
