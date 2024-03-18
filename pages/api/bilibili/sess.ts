@@ -15,31 +15,35 @@ export default async function handler(
     res: NextApiResponse,
 ) {
     try {
-        const cookies = await kv.hgetall('bilibili_cookies') as BiliHash;
-        const sess = cookies.SESSDATA;
-
-        const response = await axios.get(
-            'https://passport.bilibili.com/x/passport-login/web/cookie/info',
-            { headers: { 'Cookie': `SESSDATA=${sess}` } },
-        );
-        if (response.data['code'] != 0) {
-            console.error(`failed to check cookie with sess ${sess}: ${JSON.stringify(response.data)}`);
-            throw new Error('Failed to check cookie outdate.');
-        }
-
-
-        if (response.data.data.refresh) {
-            // SESS out of date
-            console.info('sess outdated.');
-            const newSess = await updateCookie(cookies);
-            res.status(200).json(newSess);
-        } else {
-            res.status(200).json(sess);
-        }
+        return res.status(200).json(getSess());
     } catch (err) {
         if (err instanceof Error) {
             res.status(400).json(err.message);
         }
+    }
+}
+
+export async function getSess(): Promise<string> {
+    const cookies = await kv.hgetall('bilibili_cookies') as BiliHash;
+    const sess = cookies.SESSDATA;
+
+    const response = await axios.get(
+        'https://passport.bilibili.com/x/passport-login/web/cookie/info',
+        { headers: { 'Cookie': `SESSDATA=${sess}` } },
+    );
+    if (response.data['code'] != 0) {
+        console.error(`failed to check cookie with sess ${sess}: ${JSON.stringify(response.data)}`);
+        throw new Error('Failed to check cookie outdate.');
+    }
+
+
+    if (response.data.data.refresh) {
+        // SESS out of date
+        console.info('sess outdated.');
+        const newSess = await updateCookie(cookies);
+        return newSess;
+    } else {
+        return sess;
     }
 }
 

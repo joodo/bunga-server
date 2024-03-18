@@ -7,17 +7,26 @@ export default async function handler(
 ) {
     if (req.method != 'GET') return res.status(405).json('Only get allowed.');
 
+    try {
+        const result = await getAList();
+        return res.status(200).json(result);
+    } catch (e) {
+        return res.status(400).json({ 'message': e });
+    }
+}
+
+export async function getAList() {
     const host = process.env.ALIST_HOST!;
     const username = process.env.ALIST_USERNAME;
     const password = process.env.ALIST_PASSWORD;
-    console.log(host);
+
     const response = await axios.post(host + 'auth/login', { username, password });
 
     const code = response.data['code'];
-    if (code != 200) return res.status(code).json({ 'message': response.data['message'] });
+    if (code != 200) throw new Error(response.data['message']);
 
-    return res.status(200).json({
+    return {
         host,
         token: response.data['data']['token'],
-    });
+    };
 }
