@@ -38,8 +38,10 @@ export default async function handler(
     }
 
     res.status(200).json({
-        user_token,
-        stream_io: process.env.STEAMIO_KEY!,
+        stream_io: {
+            app_key: process.env.STEAMIO_KEY!,
+            user_token,
+        },
         agora: process.env.AGORA_KEY!,
         bilibili_sess,
         alist,
