@@ -13,7 +13,7 @@ export default async function handler(
     const api_secret = process.env.STEAMIO_SECRET;
     const serverClient = StreamChat.getInstance(api_key, api_secret);
 
-    const filter = { last_message_at: { $lte: new Date(Date.now() - 24 * 60 * 60 * 1000) } };
+    const filter = { created_at: { $lte: new Date(Date.now() - 24 * 60 * 60 * 1000) } };
 
     const channels = await serverClient.queryChannels(
         // @ts-ignore
@@ -34,9 +34,10 @@ export default async function handler(
     }
     console.info(`Delete channels: ${deleteCids}`);
 
-    if (deleteCids.length > 0) {
+    const channelCounts = deleteCids.length;
+    if (channelCounts > 0) {
         await serverClient.deleteChannels(deleteCids, { hard_delete: true });
     }
 
-    res.status(200).json({ success: true });
+    res.status(200).json(`${channelCounts} channel(s) removed.`);
 }
