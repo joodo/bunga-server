@@ -7,5 +7,9 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: '/api/bilibili/sess',
+    matcher: [
+        '/api/bilibili/sess',
+        '/api/tencent/:path*',
+        '/api/agora/:path*',
+    ],
 }
