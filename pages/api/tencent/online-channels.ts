@@ -26,7 +26,8 @@ export default async function handler(
     const groupIds = response.data['GroupIdList'].map((e: { GroupId: string; }) => e.GroupId);
 
     const channels = (await fetchGroupDatas(groupIds))
-        .filter(channel => channel.data.video_type === 'online');
+        .filter(channel => channel.data.video_type === 'online')
+        .sort((x, y) => y.data.created_at - x.data.created_at);
     await kv.hset('online_channel_cache', {
         timestamp: Date.now(),
         channels,

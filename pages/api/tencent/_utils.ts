@@ -6,6 +6,7 @@ export type ChannelData = {
     'image': string | null,
     'video_type': string,
     'hash': string,
+    'created_at': number,
     'path': string | null,
     'sharer': {
         id: string,
@@ -24,6 +25,7 @@ export async function fetchGroupDatas(groupIds: Array<String>): Promise<Array<{ 
 
     return response.data['GroupInfo'].map(
         (info: {
+            CreateTime: number;
             GroupId: string;
             Name: string;
             FaceUrl: string;
@@ -41,6 +43,7 @@ export async function fetchGroupDatas(groupIds: Array<String>): Promise<Array<{ 
                 data: {
                     'name': info.Name,
                     'image': JSON.parse(info.FaceUrl),
+                    'created_at': info.CreateTime,
                     'video_type': customFields['video_type'],
                     'hash': customFields['video_hash'],
                     'path': customFields['path'],
