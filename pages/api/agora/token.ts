@@ -16,8 +16,8 @@ export default async function handler(
         channel,
         uid,
         RtcRole.PUBLISHER,
-        3600,
-        3600,
+        86400,
+        86400,
     );
     return res.status(200).json({ token });
 }
