@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { StreamChat } from 'stream-chat';
 
 import { getSess } from '../bilibili/sess';
-import { getAList } from './alist';
+import { getToken as getAlistToken } from '../alist/_utils';
 import { createUserSig } from '../tencent/_utils';
 
 export default async function handler(
@@ -28,7 +28,7 @@ export default async function handler(
     // AList
     let alist;
     try {
-        alist = await getAList();
+        alist = await getAListInfo();
     } catch (e) {
         console.error(e);
         alist = null;
@@ -71,5 +71,12 @@ function getTencentInfo(userId: string) {
         service: 'tencent',
         app_id: process.env.TENCENT_APPID!,
         user_sig: createUserSig(userId),
+    };
+}
+
+async function getAListInfo() {
+    return {
+        'host': process.env.ALIST_HOST!,
+        'token': await getAlistToken(),
     };
 }
