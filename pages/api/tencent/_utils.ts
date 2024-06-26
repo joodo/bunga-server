@@ -27,7 +27,7 @@ export async function fetchGroupDatas(groupIds: Array<String>): Promise<Array<{ 
         (info: {
             CreateTime: number;
             GroupId: string;
-            Name: string;
+            Introduction: string;
             FaceUrl: string;
             AppDefinedData: Array<{ Key: string; Value: string; }>;
         }) => {
@@ -41,7 +41,7 @@ export async function fetchGroupDatas(groupIds: Array<String>): Promise<Array<{ 
             return {
                 id: info.GroupId,
                 data: {
-                    'name': info.Name,
+                    'name': info.Introduction,
                     'image': JSON.parse(info.FaceUrl),
                     'created_at': info.CreateTime,
                     'video_type': customFields['video_type'],

@@ -21,7 +21,8 @@ export default async function handler(
                 {
                     'Type': 'Private',
                     'GroupId': groupId,
-                    'Name': joinGroupData['name'],
+                    'Name': joinGroupData['name'].substring(0, 15),
+                    'Introduction': joinGroupData['name'],
                     'FaceUrl': JSON.stringify(joinGroupData['image']),
                     'MemberList': [{ 'Member_Account': userId }],
                     'AppDefinedData': [
