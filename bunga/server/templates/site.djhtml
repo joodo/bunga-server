@@ -1,0 +1,62 @@
+{% extends "dashboard.djhtml" %}
+{% block title %}
+    站点
+{% endblock title %}
+{% block content %}
+    {% load django_bootstrap5 %}
+    <div class="card mb-3">
+        <div class="card-header">基本设置</div>
+        <div class="card-body">
+            <form method="post" action="?update=basic">
+                {% csrf_token %}
+                {% bootstrap_form basic_form %}
+                {% bootstrap_button "保存" button_type="submit" button_class="btn-primary" %}
+            </form>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">AList 设置</div>
+        <div class="row g-0">
+            <div class="col-md-8">
+                <div class="card-body">
+                    <form method="post" action="?update=alist">
+                        {% csrf_token %}
+                        {% bootstrap_form alist_form %}
+                        {% bootstrap_button "保存" button_type="submit" button_class="btn-primary" %}
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-4 text-center py-4">
+                <p class="mb-1">
+                    {# djlint:off H006,H021 #}
+                    <img id="alist-avatar"
+                         src=""
+                         class="img-thumbnail rounded-circle"
+                         style="width: 120px"
+                         alt="账号无效">
+                    {# djlint:on #}
+                </p>
+                <p class="mb-0">
+                    <strong id="alist-sitename"></strong>
+                </p>
+                <button type="button" class="btn btn-light" onclick="onRefreshClicked()">刷新</button>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+    window.onload = fetchAListInfo;
+    window.onRefreshClicked = fetchAListInfo;
+
+    async function fetchAListInfo() {
+        const host = '{{ alist_form.alist_host.value }}';
+        const response = await fetch(`{% url "api:alist_info" %}?host=${encodeURI(host)}`);
+        const data = await response.json();
+        if (!response.ok) {
+            console.error(data);
+        }
+
+        document.getElementById('alist-avatar').src = data['avatar'];
+        document.getElementById('alist-sitename').innerHTML = data['site_name'];
+    }
+    </script>
+{% endblock content %}

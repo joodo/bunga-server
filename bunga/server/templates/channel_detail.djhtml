@@ -1,0 +1,136 @@
+{% extends "dashboard.djhtml" %}
+{% block title %}
+    <a href="{% url 'channels' %}">频道</a> / {{ channel_id }}
+{% endblock title %}
+{% block content %}
+    {% load django_bootstrap5 %}
+    {% load rest_framework %}
+    <div class="card mb-3">
+        <div class="card-header">基本信息</div>
+        <div class="card-body">
+            <form class="bunga-form"
+                  action="{% url 'api:channel-detail' channel_id %}"
+                  method="patch">
+                {% csrf_token %}
+                {% render_form channel_serializer %}
+                {% bootstrap_button "保存" button_type="submit" button_class="btn-primary" %}
+                <button type="button"
+                        class="btn btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#confirm-dismiss-model">解散</button>
+            </form>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">Bilibili</div>
+        <div class="card-body">
+            <div class="row g-0">
+                <div class="col-md-8">
+                    <form id="bili-form"
+                          class="bunga-form"
+                          action="{% url 'api:bili-account-detail' channel_id %}"
+                          method="patch">
+                        {% csrf_token %}
+                        {% render_form bili_serializer %}
+                        {% bootstrap_button "保存" button_type="submit" %}
+                        <button type="button"
+                                class="btn btn-secondary"
+                                data-bs-toggle="modal"
+                                data-bs-target="#qrModal">扫码登录</button>
+                    </form>
+                </div>
+                <div class="col-md-4 text-center py-4">
+                    <p class="mb-1">
+                        {# djlint:off H006,H021 #}
+                        <img id="bili-avatar"
+                             src=""
+                             class="img-thumbnail rounded-circle"
+                             style="width: 120px"
+                             alt="账号无效" />
+                        {# djlint:on #}
+                    </p>
+                    <p class="mb-0">
+                        <strong id="bili-username"></strong>
+                    </p>
+                    <p id="bili-vip"></p>
+                    <button type="button" class="btn btn-light" onclick="onBiliRefreshClicked()">刷新</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">AList</div>
+        <div class="card-body">
+            <div class="row g-0">
+                <div class="col-md-8">
+                    <form id="alist-form"
+                          class="bunga-form"
+                          action="{% url 'api:alist-account-detail' channel_id %}"
+                          method="patch">
+                        {% csrf_token %}
+                        {% render_form alist_serializer %}
+                        {% bootstrap_button "保存" button_type="submit" %}
+                    </form>
+                </div>
+                <div class="col-md-4 px-4 text-center">
+                    <h3 id="alist-base-path"></h3>
+                    <p id="alist-permissions"></p>
+                    <button type="button" class="btn btn-light" onclick="onAlistRefreshClicked()">刷新</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modals -->
+    <div class="modal" id="confirm-dismiss-model" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">确认解散</h4>
+                </div>
+                <div class="modal-body">
+                    <p>确定要解散频道吗？</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger btn-confirm" onclick="dismissGroup()">解散</button>
+                    <button class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="qrModal" class="modal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="qrModalLabel"></h1>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <canvas id="canvas"></canvas>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Scripts -->
+    <script type="module">
+    window.URLS = {
+        "view:channels": "{% url 'channels' %}",
+        "channel:detail": "{% url 'api:channel-detail' channel_id %}",
+        "bili:qr": "{% url 'api:bilibili-qr' %}",
+        "bili:pull": "{% url 'api:bilibili-pull' %}",
+        "bili:info": "{% url 'api:bilibili-info' %}",
+        "bili-account:list": "{% url 'api:bili-account-list' %}",
+        "alist-account:list": "{% url 'api:alist-account-list' %}",
+        "alist:user-info": "{% url 'api:alist-user-info' %}",
+    }
+    $("form input[name='channel_id']").each(function(){$(this).val("{{ channel_id }}")}); 
+    </script>
+    {% load static %}
+    <script src="{% static 'qrcode.js' %}"></script>
+    <script type="module" src="{% static 'channel_detail.js' %}"></script>
+{% endblock content %}

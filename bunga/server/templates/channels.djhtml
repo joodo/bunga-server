@@ -1,0 +1,93 @@
+{% extends "dashboard.djhtml" %}
+{% block title %}
+    频道
+{% endblock title %}
+{% block content %}
+    {% load django_bootstrap5 %}
+    {% load rest_framework %}
+    <div class="card mb-3">
+        <div class="card-header">
+            服务器信息（<a href="https://cloud.tencent.com/product/im">腾讯云</a>）
+        </div>
+        <div class="card-body">
+            <form id="chat-config-form"
+                  class="bunga-form"
+                  action="{% url 'api:chat_config' %}"
+                  method="put">
+                <input type="hidden" name="_method" value="put" />
+                {% csrf_token %}
+                {% render_form chat_serializer %}
+                <button id="update-chat-config-btn" type="button" class="btn btn-primary">保存</button>
+            </form>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">频道列表</div>
+        <div class="card-body">
+            <div id="toolbar">
+                <button id="create-channel"
+                        class="btn btn-success"
+                        data-bs-toggle="modal"
+                        data-bs-target="#create-channel-model">创建</button>
+            </div>
+            <table id="channels-table"
+                   data-toggle="table"
+                   data-search="true"
+                   data-toolbar="#toolbar"
+                   data-url="{% url 'api:channel-list' %}">
+                <thead>
+                    <tr>
+                        <th data-field="group_id">编号</th>
+                        <th data-field="name">名称</th>
+                        <th data-field="member_count">客户端数量</th>
+                        <th data-field="operate" data-formatter="operateFormatter">操作</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+    <!-- Modals -->
+    <div class="modal" id="create-channel-model">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="channel-form"
+                      action="{% url 'api:channel-list' %}"
+                      class="bunga-form"
+                      method="post"
+                      autocomplete="off"
+                      novalidate>
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h4 class="modal-title">创建频道</h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            {% bootstrap_label "编号" label_for="id" %}
+                            <div class="input-group mb-3">
+                                <input id="new-channel-id" type="text" class="form-control" name="group_id">
+                                <button class="btn btn-outline-secondary" type="button" onclick="randomId()">随机</button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="name" class="form-label">名称</label>
+                            <input type="text" class="form-control" name="name">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="create-channel-btn" type="button" class="btn btn-primary">创建</button>
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Script -->
+    {% load static %}
+    <script type="module" src="{% static 'channels.js' %}"></script>
+    <script type="module">
+    window.operateFormatter = (value, row, index) => {
+        const url = "{% url 'channel-detail' 'xxx' %}".replace("xxx", encodeURIComponent(row.group_id));
+        return `<a class="btn btn-primary" href=${url} role="button">编辑</a>`
+    };
+    </script>
+{% endblock content %}

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="Your description here">
+        <meta name="keywords" content="keyword1, keyword2, keyword3">
+        {% load django_bootstrap5 %}
+        {% bootstrap_css %}
+        <link rel="stylesheet"
+              href="https://cdn.jsdelivr.net/npm/bootstrap-table@1.24.0/dist/bootstrap-table.min.css">
+        <title>{{ site_name }}</title>
+        <style>
+        @media (min-width: 768px) {
+            .sidebar {
+                height: 100vh;
+            }
+        }
+        form .form-group {
+            margin-bottom: 1rem;
+        }
+        form label {
+            margin-bottom: 0.5rem;
+        }
+        /*
+         * see https://github.com/twbs/bootstrap/blob/c5be828d99a43e871572e205d41badeac1d1f70f/scss/mixins/_visually-hidden.scss#L8
+         */
+        .sr-only {
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+            position: absolute !important;
+        }
+        </style>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <div class="row">
+                <nav id="sidebarMenu"
+                     class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+                    <div class="position-sticky">
+                        {% load active %}
+                        <ul class="nav nav-pills flex-column py-2">
+                            <li class="nav-item">
+                                <a class="nav-link {% active 'site' %}" href="{% url 'site' %}">站点</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% active 'channels' %}" href="{% url 'channels' %}">频道</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'admin:index' %}">Django Admin</a>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+                <div class="col">
+                    <nav class="navbar navbar-light ">
+                        <button class="navbar-toggler d-md-none me-2"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#sidebarMenu"
+                                aria-controls="sidebarMenu"
+                                aria-expanded="false"
+                                aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <h1 class="h2">
+                            {% block title %}
+                            {% endblock title %}
+                        </h1>
+                    </nav>
+                    {% if alert %}
+                        {% bootstrap_alert alert.content alert_type=alert.type %}
+                    {% endif %}
+                    <div id="alert-placeholder"></div>
+                    <main>
+                        {% block content %}
+                        {% endblock content %}
+                    </main>
+                </div>
+            </div>
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+        {% bootstrap_javascript %}
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap-table@1.24.0/dist/bootstrap-table.min.js"></script>
+        {% load static %}
+        <script type="module" src="{% static 'dashboard.js' %}"></script>
+    </body>
+</html>
