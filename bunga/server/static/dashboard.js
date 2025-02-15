@@ -20,8 +20,16 @@ $(document).ready(function () {
     .forEach((form) => {
       form.loadData = (data) => {
         form.querySelectorAll("input").forEach((input) => {
-          if (data[input.name]) {
-            input.value = data[input.name];
+          if (input.name in data) {
+            if (input.type === "checkbox") {
+              input.checked = data[input.name];
+              input.insertAdjacentHTML(
+                "beforebegin",
+                `<input type="hidden" name=${input.name} value="false">`
+              );
+            } else {
+              input.value = data[input.name];
+            }
           }
         });
       };
@@ -66,20 +74,24 @@ $(document).ready(function () {
       };
       form.onsubmit = (e) => {
         e.preventDefault();
-        form
-          .submitFunc()
-          .then((response) => form.afterSubmit?.apply(this, [response]));
+        form.submitFunc().then(form.afterSubmit);
       };
       form.execSubmit = () => {
+        clearAlert();
         form.dispatchEvent(new Event("submit", { cancelable: true }));
       };
 
-      fetch(form.action)
-        .then((response) => response.json())
-        .then(form.loadData)
-        .then(() => {
-          form.afterInit?.apply();
-        });
+      if (!form.hasAttribute("bunga-createonly")) {
+        fetch(form.action)
+          .then(async (response) => {
+            if (response.ok) {
+              const data = await response.json();
+              form.loadData(data);
+            }
+            return response;
+          })
+          .then(form.afterInit);
+      }
     });
 });
 

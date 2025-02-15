@@ -11,7 +11,7 @@ class DashboardRenderMixin:
             if request.method == 'GET':
                 response.data = {
                     'serializer': self.get_serializer(response.data),
-                    'site_name': models.SiteConfiguration.get_solo().site_name,
+                    'site_name': models.Site.get_solo().name,
                     'alert': request.session.pop('alert', default=None),
                 }
                 return response

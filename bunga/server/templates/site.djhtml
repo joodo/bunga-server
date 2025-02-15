@@ -4,12 +4,13 @@
 {% endblock title %}
 {% block content %}
     {% load django_bootstrap5 %}
+    {% load rest_framework %}
     <div class="card mb-3">
         <div class="card-header">基本设置</div>
         <div class="card-body">
-            <form method="post" action="?update=basic">
+            <form class="bunga-form" action="{% url 'api:site' %}" method="put">
                 {% csrf_token %}
-                {% bootstrap_form basic_form %}
+                {% render_form site_serializer %}
                 {% bootstrap_button "保存" button_type="submit" button_class="btn-primary" %}
             </form>
         </div>
@@ -19,9 +20,13 @@
         <div class="row g-0">
             <div class="col-md-8">
                 <div class="card-body">
-                    <form method="post" action="?update=alist">
+                    <form id="alist-form"
+                          class="bunga-form"
+                          action="{% url 'api:alist-host' %}"
+                          method="put"
+                          novalidate>
                         {% csrf_token %}
-                        {% bootstrap_form alist_form %}
+                        {% render_form alist_serializer %}
                         {% bootstrap_button "保存" button_type="submit" button_class="btn-primary" %}
                     </form>
                 </div>
@@ -44,19 +49,10 @@
         </div>
     </div>
     <script type="module">
-    window.onload = fetchAListInfo;
-    window.onRefreshClicked = fetchAListInfo;
-
-    async function fetchAListInfo() {
-        const host = '{{ alist_form.alist_host.value }}';
-        const response = await fetch(`{% url "api:alist_info" %}?host=${encodeURI(host)}`);
-        const data = await response.json();
-        if (!response.ok) {
-            console.error(data);
-        }
-
-        document.getElementById('alist-avatar').src = data['avatar'];
-        document.getElementById('alist-sitename').innerHTML = data['site_name'];
+    window.URLS = {
+        "alist:info": "{% url 'api:alist_info' %}",
     }
     </script>
+    {% load static %}
+    <script type="module" src="{% static 'site.js' %}"></script>
 {% endblock content %}

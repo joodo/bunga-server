@@ -21,62 +21,28 @@ $(document).ready(function () {
 
   // Bilibili
   bindBiliModalEvent();
-  window.onBiliRefreshClicked = () => fetchAListInfo(true);
+  window.onBiliRefreshClicked = function () {
+    fetchBilibiliInfo(true);
+  };
 
   const biliForm = $("#bili-form")[0];
-  biliForm.afterSubmit = async function (response) {
+  biliForm.afterSubmit = function (response) {
     if (response.ok) {
       fetchBilibiliInfo();
-    } else if (response.status === 404) {
-      window.clearAlert();
-
-      const data = $("#bili-form").serializeObject();
-      response = await fetch(window.URLS["bili-account:list"], {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": data["csrfmiddlewaretoken"],
-          mode: "same-origin",
-        },
-        body: JSON.stringify(data),
-      });
-      biliForm.showResult(response);
-
-      if (response.ok) {
-        fetchBilibiliInfo();
-      }
     }
   };
-  biliForm.afterInit = fetchBilibiliInfo;
+  biliForm.afterInit = biliForm.afterSubmit;
 
   // AList
-  window.onAlistRefreshClicked = () => fetchAListInfo();
+  window.onAlistRefreshClicked = fetchAListInfo;
 
   const aListForm = $("#alist-form")[0];
   aListForm.afterSubmit = async function (response) {
     if (response.ok) {
       fetchAListInfo();
-    } else if (response.status === 404) {
-      window.clearAlert();
-
-      const data = $("#alist-form").serializeObject();
-      response = await fetch(window.URLS["alist-account:list"], {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": data["csrfmiddlewaretoken"],
-          mode: "same-origin",
-        },
-        body: JSON.stringify(data),
-      });
-      biliForm.showResult(response);
-
-      if (response.ok) {
-        fetchAListInfo();
-      }
     }
   };
-  aListForm.afterInit = fetchAListInfo;
+  aListForm.afterInit = aListForm.afterSubmit;
 });
 
 function bindBiliModalEvent() {
@@ -165,28 +131,28 @@ async function submitValue(data) {
 }
 
 async function fetchBilibiliInfo(force = false) {
-  console.log(123123123);
   const sess = $("input[name=sess]").val();
+  if (!sess) return;
+
   const response = await fetch(
     `${window.URLS["bili:info"]}?sess=${sess}${force ? "&force" : ""}`
   );
   if (!response.ok) {
     console.warn("cannot load bilibili user info:");
-    console.log(response);
+    console.warn(response);
   }
 
   const json = await response.json();
-  document.getElementById("bili-avatar").src = json["avatar"];
-  document.getElementById("bili-username").innerHTML = json["username"];
-  document.getElementById("bili-vip").innerHTML = `大会员：${
-    json["vip"] ? "是" : "否"
-  }`;
+  $("#bili-avatar").attr("src", json["avatar"]);
+  $("#bili-username").html(json["username"]);
+  $("#bili-vip").html(`大会员：${json["vip"] ? "是" : "否"}`);
 }
 
 async function fetchAListInfo() {
   const url = window.URLS["alist:user-info"];
   const username = $("#alist-form input[name='username']").val();
   const password = $("#alist-form input[name='password']").val();
+  if (!username || !password) return;
 
   const response = await fetch(
     `${url}?username=${username}&password=${password}`

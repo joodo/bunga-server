@@ -8,7 +8,7 @@ from Crypto.Hash import SHA256
 from lxml.html import soupparser
 
 from server.models import BilibiliAccount
-from . import user_agent, parse_set_cookie
+from .network import user_agent, parse_set_cookie
 
 # see https://github.com/SocialSisterYi/bilibili-API-collect/blob/e5fbfed42807605115c6a9b96447f6328ca263c5/docs/login/cookie_refresh.md
 

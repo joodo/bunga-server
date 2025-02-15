@@ -5,7 +5,7 @@ from server import models, forms, serializers, mixins
 
 
 def site(request):
-    config = models.SiteConfiguration.get_solo()
+    config = models.Site.get_solo()
     if request.method == 'POST':
         updated_form = request.GET.get('update')
         match updated_form:
@@ -19,23 +19,24 @@ def site(request):
                 raise Exception('Unknown update type: ' + str(updated_form))
         return __render_saved(request)
 
-    basic_form = forms.SiteBasicForm(instance=config)
-    alist_form = forms.SiteAlistForm(instance=config)
+    site_serializer = serializers.SiteSerializer()
+    alist_serializer = serializers.AlistHostSerializer()
     return __render_dashboard(request, 'site.djhtml', {
-        'basic_form': basic_form,
-        'alist_form': alist_form,
+        'site_id': config.pk,
+        'site_serializer': site_serializer,
+        'alist_serializer': alist_serializer,
     })
 
 
 def channel_list(request):
     return __render_dashboard(request, 'channels.djhtml', {
-        'chat_serializer': serializers.ChatConfigurationSerializer,
+        'chat_serializer': serializers.IMKeySerializer,
     })
 
 
 def channel_detail(request, channel_id):
     return __render_dashboard(request, 'channel_detail.djhtml', {
-        'channel_serializer': serializers.ChannelDetailSerializer,
+        'channel_serializer': serializers.ChannelSerializer,
         'channel_id': channel_id,
         'bili_serializer': serializers.BilibiliAccountSerializer,
         'alist_serializer': serializers.AListAccountSerializer,
@@ -44,7 +45,7 @@ def channel_detail(request, channel_id):
 
 def __render_dashboard(request, template_name, data):
     template_data = {
-        'site_name': models.SiteConfiguration.get_solo().site_name,
+        'site_name': models.Site.get_solo().name,
         'alert': request.session.pop('alert', default=None),
     }
     return render(request, template_name, template_data | data)

@@ -52,8 +52,12 @@
                             <li class="nav-item">
                                 <a class="nav-link {% active 'channels' %}" href="{% url 'channels' %}">频道</a>
                             </li>
+                            <hr />
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'admin:index' %}">Django Admin</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'index' %}">返回主页</a>
                             </li>
                         </ul>
                     </div>

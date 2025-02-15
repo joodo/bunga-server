@@ -1,24 +1,12 @@
 from django import forms
 from django.forms import ModelForm, Form
 
-from .models import AListAccount, BilibiliAccount, CallingConfiguration, ChatConfiguration, SiteConfiguration
-
-
-class SiteBasicForm(ModelForm):
-    class Meta:
-        model = SiteConfiguration
-        fields = ['site_name', 'allow_new_client']
-
-
-class SiteAlistForm(ModelForm):
-    class Meta:
-        model = SiteConfiguration
-        fields = ['alist_host']
+from .models import AListAccount, BilibiliAccount, VoiceKey, IMKey, Site
 
 
 class ChatConfigurationForm(ModelForm):
     class Meta:
-        model = ChatConfiguration
+        model = IMKey
         exclude = []
 
 
@@ -29,7 +17,7 @@ class ChannelForm(Form):
 
 class CallingConfigurationForm(ModelForm):
     class Meta:
-        model = CallingConfiguration
+        model = VoiceKey
         exclude = []
 
 

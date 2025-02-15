@@ -1,10 +1,14 @@
+# PEP-8
+
 from django.shortcuts import render
+from django.contrib.auth.decorators import login_not_required
 
-from server.models import SiteConfiguration
+from server.models import Site
 
 
+@login_not_required
 def index(request):
-    config = SiteConfiguration.get_solo()
+    config = Site.get_solo()
     return render(request, 'index.djhtml', {
-        'site_name': config.site_name,
+        'site_name': config.name,
     })

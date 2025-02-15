@@ -37,7 +37,7 @@
                    data-url="{% url 'api:channel-list' %}">
                 <thead>
                     <tr>
-                        <th data-field="group_id">编号</th>
+                        <th data-field="channel_id">编号</th>
                         <th data-field="name">名称</th>
                         <th data-field="member_count">客户端数量</th>
                         <th data-field="operate" data-formatter="operateFormatter">操作</th>
@@ -53,6 +53,7 @@
                 <form id="channel-form"
                       action="{% url 'api:channel-list' %}"
                       class="bunga-form"
+                      bunga-createonly
                       method="post"
                       autocomplete="off"
                       novalidate>
@@ -86,7 +87,7 @@
     <script type="module" src="{% static 'channels.js' %}"></script>
     <script type="module">
     window.operateFormatter = (value, row, index) => {
-        const url = "{% url 'channel-detail' 'xxx' %}".replace("xxx", encodeURIComponent(row.group_id));
+        const url = "{% url 'channel-detail' 'xxx' %}".replace("xxx", encodeURIComponent(row.channel_id));
         return `<a class="btn btn-primary" href=${url} role="button">编辑</a>`
     };
     </script>

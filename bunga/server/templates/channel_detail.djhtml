@@ -10,8 +10,13 @@
         <div class="card-body">
             <form class="bunga-form"
                   action="{% url 'api:channel-detail' channel_id %}"
-                  method="patch">
+                  method="patch"
+                  novalidate>
                 {% csrf_token %}
+                <div class="form-group ">
+                    <label>Name</label>
+                    <input name="name" class="form-control" type="text" value="">
+                </div>
                 {% render_form channel_serializer %}
                 {% bootstrap_button "保存" button_type="submit" button_class="btn-primary" %}
                 <button type="button"
@@ -29,7 +34,8 @@
                     <form id="bili-form"
                           class="bunga-form"
                           action="{% url 'api:bili-account-detail' channel_id %}"
-                          method="patch">
+                          method="patch"
+                          novalidate>
                         {% csrf_token %}
                         {% render_form bili_serializer %}
                         {% bootstrap_button "保存" button_type="submit" %}

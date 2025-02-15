@@ -3,33 +3,48 @@ from urllib.parse import urlparse
 
 import requests
 
-from django.http import HttpRequest, JsonResponse
 from django.core.cache import cache
 from rest_framework import generics, viewsets, status
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
 
-from server.utils import tencent
-from server.models import AListAccount, BilibiliAccount, ChatConfiguration
-from server.utils import user_agent, parse_set_cookie, bilibili
+from server.utils import network, bilibili, tencent
 from server import serializers, models
 
 
-class ChatConfig(generics.RetrieveUpdateAPIView):
-    serializer_class = serializers.ChatConfigurationSerializer
+class Site(generics.RetrieveUpdateAPIView):
+    serializer_class = serializers.SiteSerializer
 
     def get_object(self):
-        return models.ChatConfiguration.get_solo()
+        return models.Site.get_solo()
 
 
-class ChannelViewSet(viewsets.ViewSet):
-    def list(self, request: HttpRequest) -> Response:
-        config = ChatConfiguration.get_solo()
-        response = tencent.request(
-            config,
-            'group_open_http_svc/get_appid_group_list',
-        )
+class AListHost(generics.RetrieveUpdateAPIView):
+    serializer_class = serializers.AlistHostSerializer
 
-        group_ids = [item['GroupId'] for item in response['GroupIdList']]
+    def get_object(self):
+        return models.AListHost.get_solo()
+
+
+class IMKey(generics.RetrieveUpdateAPIView):
+    serializer_class = serializers.IMKeySerializer
+
+    def get_object(self):
+        return models.IMKey.get_solo()
+
+
+class ChannelViewSet(viewsets.ModelViewSet):
+    queryset = models.Channel.objects.all()
+    serializer_class = serializers.ChannelSerializer
+
+    def list(self, request: Request) -> Response:
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        local_data = serializer.data
+
+        config = models.IMKey.get_solo()
+        group_ids = [item['channel_id'] for item in local_data]
         response = tencent.request(
             config,
             'group_open_http_svc/get_group_info',
@@ -47,17 +62,17 @@ class ChannelViewSet(viewsets.ViewSet):
         )
 
         data = [{
-            'group_id': item.get('GroupId'),
+            'channel_id': item.get('GroupId'),
             'name': item.get('Name'),
             'avatar': item.get('FaceUrl'),
             'member_count': item.get('MemberNum'),
         } for item in response['GroupInfo']]
         return Response(data)
 
-    def create(self, request: HttpRequest) -> Response:
-        config = ChatConfiguration.get_solo()
+    def create(self, request: Request) -> Response:
+        config = models.IMKey.get_solo()
 
-        data = json.loads(request.body)
+        data = request.data
         response = tencent.request(
             config,
             'group_open_http_svc/create_group',
@@ -70,10 +85,10 @@ class ChannelViewSet(viewsets.ViewSet):
 
         match response.get('ErrorCode'):
             case 0:
-                return Response({
+                data = {
                     'group_id': response.get('GroupId'),
                     'name': data.get('name'),
-                }, status=status.HTTP_201_CREATED)
+                }
             case 10021 | 10025:
                 return Response({
                     'group_id': response.get('ErrorInfo'),
@@ -83,9 +98,17 @@ class ChannelViewSet(viewsets.ViewSet):
                     'name': response.get('ErrorInfo'),
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-    def retrieve(self, request: HttpRequest, pk=None) -> Response:
-        config = ChatConfiguration.get_solo()
-        group_ids = [pk]
+        new_channel = models.Channel.objects.create(
+            channel_id=data.get('group_id'))
+        models.AListAccount.objects.create(channel=new_channel)
+        models.BilibiliAccount.objects.create(channel=new_channel)
+
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    def retrieve(self, request: Request, pk=None) -> Response:
+        instance = self.get_object()
+        config = models.IMKey.get_solo()
+        group_ids = [instance.channel_id]
         response = tencent.request(
             config,
             'group_open_http_svc/get_group_info',
@@ -102,22 +125,26 @@ class ChannelViewSet(viewsets.ViewSet):
             },
         )
 
-        data = [{
+        serializer = self.get_serializer(instance)
+        item = response['GroupInfo'][0]
+        data = {
             'id': item.get('GroupId'),
             'name': item.get('Name'),
             'avatar': item.get('FaceUrl'),
             'member_count': item.get('MemberNum'),
-        } for item in response['GroupInfo']]
-        return Response(data[0])
+        }
+        return Response(data | serializer.data)
 
-    def partial_update(self, request: HttpRequest, pk=None):
-        config = ChatConfiguration.get_solo()
-        data = json.loads(request.body)
+    def partial_update(self, request: Request, pk=None):
+        instance = self.get_object()
+
+        config = models.IMKey.get_solo()
+        data = request.data
         response = tencent.request(
             config,
             'group_open_http_svc/modify_group_base_info',
             {
-                'GroupId': pk,
+                'GroupId': instance.channel_id,
                 'Name': data.get('name'),
             },
         )
@@ -126,18 +153,22 @@ class ChannelViewSet(viewsets.ViewSet):
             return Response({
                 'detail': response.get('ErrorInfo'),
             }, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response({
-                'detail': 'success',
-            }, status=status.HTTP_206_PARTIAL_CONTENT)
 
-    def destroy(self, request: HttpRequest, pk=None) -> Response:
+        serializer = self.get_serializer(instance, data=data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        return Response({
+            'detail': 'success',
+        }, status=status.HTTP_206_PARTIAL_CONTENT)
+
+    def destroy(self, request: Request, pk=None) -> Response:
         if not pk:
             return Response({
                 'detail': 'group_id is required.',
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        config = ChatConfiguration.get_solo()
+        config = models.IMKey.get_solo()
         response = tencent.request(
             config,
             'group_open_http_svc/destroy_group',
@@ -150,14 +181,12 @@ class ChannelViewSet(viewsets.ViewSet):
             return Response({
                 'detail': response.get('ErrorInfo'),
             }, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response({
-                'detail': 'success',
-            }, status=status.HTTP_204_NO_CONTENT)
+
+        return super().destroy(request, pk)
 
 
 class BiliAccountViewSet(viewsets.ModelViewSet):
-    queryset = BilibiliAccount.objects.all()
+    queryset = models.BilibiliAccount.objects.all()
     lookup_field = 'channel_id'
     serializer_class = serializers.BilibiliAccountSerializer
 
@@ -175,84 +204,87 @@ class BiliAccountViewSet(viewsets.ModelViewSet):
 
 
 class AListAccountViewSet(viewsets.ModelViewSet):
-    queryset = AListAccount.objects.all()
+    queryset = models.AListAccount.objects.all()
     lookup_field = 'channel_id'
     serializer_class = serializers.AListAccountSerializer
 
 
-def bilibili_qr(request: HttpRequest) -> JsonResponse:
+@api_view(['GET'])
+def bilibili_qr(request: Request) -> Response:
     response = requests.get(
         'https://passport.bilibili.com/x/passport-login/web/qrcode/generate',
-        headers={'User-Agent': user_agent},
+        headers={'User-Agent': network.user_agent},
     )
     if (not response.ok):
-        return JsonResponse({
+        return Response({
             'message': 'generate qr code from bilibili failed',
-        }, status=500)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     data = response.json()
     if (data['code'] != 0):
-        return JsonResponse(data, status=500)
+        return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    return JsonResponse(data['data'])
+    return Response(data['data'])
 
 
-def bilibili_pull(request: HttpRequest) -> JsonResponse:
-    qrcode_key = request.GET.get('key')
+@api_view(['GET'])
+def bilibili_pull(request: Request) -> Response:
+    qrcode_key = request.query_params.get('key')
     response = requests.get(
         f'https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key={qrcode_key}',
-        headers={'User-Agent': user_agent},
+        headers={'User-Agent': network.user_agent},
     )
     if (not response.ok):
-        return JsonResponse({
+        return Response({
             'message': 'pull qr status from bilibili failed',
-        }, status=500)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     data = response.json()
     if (data['code'] != 0):
-        return JsonResponse(data, status=500)
+        return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     data = data['data']
     if (data['code'] != 0):
-        return JsonResponse(data)
+        return Response(data)
 
-    cookies = parse_set_cookie(response.headers['set-cookie'])
+    cookies = network.parse_set_cookie(response.headers['set-cookie'])
     data['sess'] = cookies['SESSDATA']
     data['bili_jct'] = cookies['bili_jct']
-    return JsonResponse(data)
+    return Response(data)
 
 
-def bilibili_info(request: HttpRequest) -> JsonResponse:
-    sess = request.GET.get('sess')
+@api_view(['GET'])
+def bilibili_info(request: Request) -> Response:
+    sess = request.query_params.get('sess')
     if not sess:
-        return JsonResponse({
+        return Response({
             'err_code': -1,
             'message': '"sess" is required.',
-        }, status=400)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     cache_key = 'bili_info:' + sess
     if 'force' not in request.GET:
         cached_info = cache.get(cache_key, default=None)
         if cached_info:
-            return JsonResponse(cached_info)
+            return Response(cached_info)
 
     response = requests.get(
         'https://api.bilibili.com/x/web-interface/nav',
-        headers={'User-Agent': user_agent},
+        headers={'User-Agent': network.user_agent},
         cookies={'SESSDATA': request.GET['sess']},
     )
     if (not response.ok):
-        return JsonResponse({
+        return Response({
             'err_code': 1,
             'message': response.text,
-        }, status=500)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     data = response.json()
     if (data['code'] != 0):
-        return JsonResponse({
+        return Response({
             'err_code': 2,
             'message': data,
-        }, status=500)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     info = {
         'avatar': data['data']['face'],
@@ -264,13 +296,14 @@ def bilibili_info(request: HttpRequest) -> JsonResponse:
         },
     }
     cache.set(cache_key, info)
-    return JsonResponse(info)
+    return Response(info)
 
 
-def alist_info(request: HttpRequest) -> JsonResponse:
-    host = request.GET.get('host')
+@api_view(['GET'])
+def alist_info(request: Request) -> Response:
+    host = request.query_params.get('host')
     if not host:
-        return JsonResponse({
+        return Response({
             'err_code': -1,
             'message': '"host" is required.',
         }, status=400)
@@ -278,34 +311,35 @@ def alist_info(request: HttpRequest) -> JsonResponse:
     host = __parse_host(host)
     response = requests.get(host + '/api/public/settings')
     if not response.ok:
-        return JsonResponse({
+        return Response({
             'err_code': 1,
             'message': response.text,
         }, status=400)
 
     data = response.json()
     if data['code'] != 200:
-        return JsonResponse({
+        return Response({
             'err_code': 2,
             'message': data,
-        }, status=400)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     result = {
         'avatar': data['data']['logo'],
         'site_name': data['data']['site_title'],
     }
-    return JsonResponse(result)
+    return Response(result)
 
 
-def alist_user_info(request: HttpRequest) -> JsonResponse:
-    host = models.SiteConfiguration.get_solo().alist_host
-    username = request.GET.get('username')
-    password = request.GET.get('password')
+@api_view(['GET'])
+def alist_user_info(request: Request) -> Response:
+    host = models.AListHost.get_solo().host
+    username = request.query_params.get('username')
+    password = request.query_params.get('password')
     if not (host and username and password):
-        return JsonResponse({
+        return Response({
             'err_code': -1,
             'message': '"username" and "password" are required.',
-        }, status=400)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     host = __parse_host(host)
     response = requests.post(
@@ -313,17 +347,17 @@ def alist_user_info(request: HttpRequest) -> JsonResponse:
         {'Username': username, 'Password': password},
     )
     if not response.ok:
-        return JsonResponse({
+        return Response({
             'err_code': 1,
             'message': response.text,
-        }, status=400)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     data = response.json()
     if data['code'] != 200:
-        return JsonResponse({
+        return Response({
             'err_code': 2,
             'message': data,
-        }, status=400)
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     token = data['data']['token']
     response = requests.get(
@@ -333,7 +367,7 @@ def alist_user_info(request: HttpRequest) -> JsonResponse:
 
     data = response.json()
 
-    return JsonResponse({
+    return Response({
         'base_path': data['data']['base_path'],
         'permission': 'admin' if data['data']['role'] == 2 else data['data']['permission'],
     })
