@@ -49,3 +49,9 @@ class AListAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.AListAccount
         fields = '__all__'
+
+
+class RegisterPayloadSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150, required=True)
+    password = serializers.CharField(required=True)
+    channel_id = serializers.CharField(required=True)

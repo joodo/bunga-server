@@ -16,6 +16,7 @@ dashboard_patterns = [
 ]
 
 api_patterns = [
+    # For dashboard
     path('site', api.Site.as_view(), name='site'),
     path('alist-host', api.AListHost.as_view(), name='alist-host'),
     path('bilibili/qr', api.bilibili_qr, name='bilibili-qr'),
@@ -24,6 +25,8 @@ api_patterns = [
     path('alist/info', api.alist_info, name='alist_info'),
     path('alist/user-info', api.alist_user_info, name='alist-user-info'),
     path('chat/config', api.IMKey.as_view(), name='chat_config'),
+    # For client
+    path('register', api.register, name='register'),
 ]
 router = routers.SimpleRouter()
 router.register(r'channels', api.ChannelViewSet, basename='channel')

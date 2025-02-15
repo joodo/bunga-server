@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'django_bootstrap5',
     "server.apps.ServerConfig",
     'rest_framework',
-    "debug_toolbar",
+    'debug_toolbar',
 ]
 
 MIDDLEWARE = [
@@ -128,3 +128,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Auth
 LOGIN_URL = reverse_lazy('admin:login')
+
+
+# REST framework
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ]
+}

@@ -1,13 +1,16 @@
-import json
 from urllib.parse import urlparse
 
 import requests
 
 from django.core.cache import cache
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User, Permission
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import generics, viewsets, status
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser, AllowAny
 
 from server.utils import network, bilibili, tencent
 from server import serializers, models
@@ -15,6 +18,7 @@ from server import serializers, models
 
 class Site(generics.RetrieveUpdateAPIView):
     serializer_class = serializers.SiteSerializer
+    permission_classes = [IsAdminUser]
 
     def get_object(self):
         return models.Site.get_solo()
@@ -22,6 +26,7 @@ class Site(generics.RetrieveUpdateAPIView):
 
 class AListHost(generics.RetrieveUpdateAPIView):
     serializer_class = serializers.AlistHostSerializer
+    permission_classes = [IsAdminUser]
 
     def get_object(self):
         return models.AListHost.get_solo()
@@ -29,6 +34,7 @@ class AListHost(generics.RetrieveUpdateAPIView):
 
 class IMKey(generics.RetrieveUpdateAPIView):
     serializer_class = serializers.IMKeySerializer
+    permission_classes = [IsAdminUser]
 
     def get_object(self):
         return models.IMKey.get_solo()
@@ -37,6 +43,7 @@ class IMKey(generics.RetrieveUpdateAPIView):
 class ChannelViewSet(viewsets.ModelViewSet):
     queryset = models.Channel.objects.all()
     serializer_class = serializers.ChannelSerializer
+    permission_classes = [IsAdminUser]
 
     def list(self, request: Request) -> Response:
         queryset = self.filter_queryset(self.get_queryset())
@@ -44,7 +51,11 @@ class ChannelViewSet(viewsets.ModelViewSet):
         local_data = serializer.data
 
         config = models.IMKey.get_solo()
+
         group_ids = [item['channel_id'] for item in local_data]
+        if not group_ids:
+            return Response([])
+
         response = tencent.request(
             config,
             'group_open_http_svc/get_group_info',
@@ -100,8 +111,6 @@ class ChannelViewSet(viewsets.ModelViewSet):
 
         new_channel = models.Channel.objects.create(
             channel_id=data.get('group_id'))
-        models.AListAccount.objects.create(channel=new_channel)
-        models.BilibiliAccount.objects.create(channel=new_channel)
 
         return Response(data, status=status.HTTP_201_CREATED)
 
@@ -189,6 +198,7 @@ class BiliAccountViewSet(viewsets.ModelViewSet):
     queryset = models.BilibiliAccount.objects.all()
     lookup_field = 'channel_id'
     serializer_class = serializers.BilibiliAccountSerializer
+    permission_classes = [IsAdminUser]
 
     def get_object(self):
         instance = super().get_object()
@@ -207,8 +217,10 @@ class AListAccountViewSet(viewsets.ModelViewSet):
     queryset = models.AListAccount.objects.all()
     lookup_field = 'channel_id'
     serializer_class = serializers.AListAccountSerializer
+    permission_classes = [IsAdminUser]
 
 
+@permission_classes([IsAdminUser])
 @api_view(['GET'])
 def bilibili_qr(request: Request) -> Response:
     response = requests.get(
@@ -227,6 +239,7 @@ def bilibili_qr(request: Request) -> Response:
     return Response(data['data'])
 
 
+@permission_classes([IsAdminUser])
 @api_view(['GET'])
 def bilibili_pull(request: Request) -> Response:
     qrcode_key = request.query_params.get('key')
@@ -253,6 +266,7 @@ def bilibili_pull(request: Request) -> Response:
     return Response(data)
 
 
+@permission_classes([IsAdminUser])
 @api_view(['GET'])
 def bilibili_info(request: Request) -> Response:
     sess = request.query_params.get('sess')
@@ -299,6 +313,7 @@ def bilibili_info(request: Request) -> Response:
     return Response(info)
 
 
+@permission_classes([IsAdminUser])
 @api_view(['GET'])
 def alist_info(request: Request) -> Response:
     host = request.query_params.get('host')
@@ -330,6 +345,7 @@ def alist_info(request: Request) -> Response:
     return Response(result)
 
 
+@permission_classes([IsAdminUser])
 @api_view(['GET'])
 def alist_user_info(request: Request) -> Response:
     host = models.AListHost.get_solo().host
@@ -371,6 +387,60 @@ def alist_user_info(request: Request) -> Response:
         'base_path': data['data']['base_path'],
         'permission': 'admin' if data['data']['role'] == 2 else data['data']['permission'],
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+# username, password, channel_id
+def register(request: Request) -> Response:
+    serializer = serializers.RegisterPayloadSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400)
+    payload = serializer.validated_data()
+
+    try:
+        channel = models.Channel.get(channel_id=payload['channel_id'])
+    except ObjectDoesNotExist:
+        return Response({
+            'channel_id': 'Channel does not exist.',
+        }, status=status.HTTP_404_NOT_FOUND)
+    permission = Permission.objects.get(
+        codename=f'channel_{channel.channel_id}')
+
+    user_exists = User.objects.filter(username=payload['username']).exists()
+    if not user_exists:
+        if not channel.allow_new_client:
+            return Response({
+                'channel_id': 'Channel does not allow new client.',
+            }, status=status.HTTP_403_FORBIDDEN)
+        else:
+            user = User.objects.create_user(
+                payload['username'], None, payload['password'])
+            user.user_permissions.add(permission)
+            user.save()
+            status_code = status.HTTP_201_CREATED
+    else:
+        user = authenticate(
+            username=payload['username'], password=payload['password'])
+        if user is None:
+            return Response({
+                'password': 'Password is not correct.',
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            if not user.has_perm(f'server.{permission.codename}'):
+                if not channel.allow_new_client:
+                    return Response({
+                        'channel_id': 'Channel does not allow new client.',
+                    }, status=status.HTTP_403_FORBIDDEN)
+                else:
+                    user.user_permissions.add(permission)
+                    user.save()
+                    status_code = status.HTTP_200_OK
+            else:
+                status_code = status.HTTP_200_OK
+
+    # Todo: return data
+    return Response({}, status=status_code)
 
 
 def __parse_host(host):
