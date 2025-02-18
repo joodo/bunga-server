@@ -1,5 +1,4 @@
 import random
-from django.http import JsonResponse
 from django.db import models
 import requests
 

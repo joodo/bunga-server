@@ -11,8 +11,9 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, AllowAny
+from rest_framework.authtoken.models import Token
 
-from server.utils import network, bilibili, tencent
+from server.utils import network, bilibili, tencent, cached_function
 from server import serializers, models
 
 
@@ -116,32 +117,8 @@ class ChannelViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request: Request, pk=None) -> Response:
         instance = self.get_object()
-        config = models.IMKey.get_solo()
-        group_ids = [instance.channel_id]
-        response = tencent.request(
-            config,
-            'group_open_http_svc/get_group_info',
-            {
-                'GroupIdList': group_ids,
-                'ResponseFilter': {
-                    'GroupBaseInfoFilter': [
-                        'GroupId',
-                        'Name',
-                        'FaceUrl',
-                        'MemberNum',
-                    ],
-                },
-            },
-        )
-
+        data = _get_channel_info(instance.channel_id)
         serializer = self.get_serializer(instance)
-        item = response['GroupInfo'][0]
-        data = {
-            'id': item.get('GroupId'),
-            'name': item.get('Name'),
-            'avatar': item.get('FaceUrl'),
-            'member_count': item.get('MemberNum'),
-        }
         return Response(data | serializer.data)
 
     def partial_update(self, request: Request, pk=None):
@@ -323,7 +300,7 @@ def alist_info(request: Request) -> Response:
             'message': '"host" is required.',
         }, status=400)
 
-    host = __parse_host(host)
+    host = _parse_host(host)
     response = requests.get(host + '/api/public/settings')
     if not response.ok:
         return Response({
@@ -357,30 +334,18 @@ def alist_user_info(request: Request) -> Response:
             'message': '"username" and "password" are required.',
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    host = __parse_host(host)
-    response = requests.post(
-        host + '/api/auth/login',
-        {'Username': username, 'Password': password},
-    )
-    if not response.ok:
+    try:
+        token = _get_alist_token(host, username, password)
+    except Exception as e:
         return Response({
-            'err_code': 1,
-            'message': response.text,
+            'detail': str(e),
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    data = response.json()
-    if data['code'] != 200:
-        return Response({
-            'err_code': 2,
-            'message': data,
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-    token = data['data']['token']
+    print(token)
     response = requests.get(
         host + '/api/me',
         headers={'Authorization': token},
     )
-
     data = response.json()
 
     return Response({
@@ -439,10 +404,84 @@ def register(request: Request) -> Response:
             else:
                 status_code = status.HTTP_200_OK
 
-    # Todo: return data
-    return Response({}, status=status_code)
+    data = {
+        'token': Token.objects.get_or_create(user=user),
+    }
+
+    data['channel'] = _get_channel_info(channel.channel_id)
+
+    im_key = models.IMKey.get_solo()
+    data['chat'] = {
+        'service': 'tencent',
+        'app_id':  im_key.tencent_app_id,
+        'user_sig': tencent.generate_user_sig(im_key),
+    }
+
+    data['voice_call'] = {
+        'service': 'agora',
+        'key': models.VoiceKey.get_solo().agora_key,
+    }
+
+    bilibili = models.BilibiliAccount.objects.get(channel=channel)
+    data['bilibili'] = {
+        'sess': bilibili.sess
+    }
+
+    alist_host = models.AListHost.get_solo()
+    alist_account = models.AListAccount.objects.get(channel=channel)
+    data['alist'] = {
+        'host': alist_host.host,
+        'token': _get_alist_token(alist_host.host, alist_account.username, alist_account.password),
+    }
+
+    return Response(data, status=status_code)
 
 
-def __parse_host(host):
+@cached_function(lambda channel_id: f'channel:{channel_id}')
+def _get_channel_info(channel_id: str) -> dict:
+    config = models.IMKey.get_solo()
+    response = tencent.request(
+        config,
+        'group_open_http_svc/get_group_info',
+        {
+            'GroupIdList': [channel_id],
+            'ResponseFilter': {
+                'GroupBaseInfoFilter': [
+                    'GroupId',
+                    'Name',
+                    'FaceUrl',
+                    'MemberNum',
+                ],
+            },
+        },
+    )
+
+    item = response['GroupInfo'][0]
+    return {
+        'id': item.get('GroupId'),
+        'name': item.get('Name'),
+        'avatar': item.get('FaceUrl'),
+        'member_count': item.get('MemberNum'),
+    }
+
+
+@cached_function(lambda host, username, _: f'alist:{username}@{host}')
+def _get_alist_token(host: str, username: str, password: str) -> str:
+    host = _parse_host(host)
+    response = requests.post(
+        host + '/api/auth/login',
+        {'Username': username, 'Password': password},
+    )
+    if not response.ok:
+        raise Exception(response.text)
+
+    data = response.json()
+    if data['code'] != 200:
+        raise Exception(data)
+
+    return data['data']['token']
+
+
+def _parse_host(host):
     parsed = urlparse(host)
     return f'{parsed.scheme}://{parsed.netloc}'
