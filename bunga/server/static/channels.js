@@ -128,3 +128,16 @@ window.onCreateChannel = async (event) => {
     }
   }
 };
+
+window.showShareModal = function ({ download, api } = {}) {
+  $("#download-page-address").val(new URL(download, document.baseURI).href);
+  $("#api-address").val(new URL(api, document.baseURI).href);
+  $("#share-model").modal("show");
+};
+
+window.copyToClipboard = function (inputId) {
+  const input = document.getElementById(inputId);
+  input.select();
+  input.setSelectionRange(0, 99999); // For mobile devices
+  navigator.clipboard.writeText(input.value);
+};

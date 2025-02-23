@@ -82,13 +82,61 @@
             </div>
         </div>
     </div>
+    <div class="modal" id="share-model">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">分享频道</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {% bootstrap_label "下载页面" label_for="download-page-address" %}
+                        <div class="input-group mb-3">
+                            <input id="download-page-address"
+                                   type="text"
+                                   class="form-control"
+                                   value="https://example.com/server-address"
+                                   readonly
+                                   aria-label="server-address">
+                            <button class="btn btn-outline-secondary"
+                                    type="button"
+                                    onclick="copyToClipboard('download-page-address')">复制</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        {% bootstrap_label "服务器地址" label_for="api-address" %}
+                        <div class="input-group mb-3">
+                            <input id="api-address"
+                                   type="text"
+                                   class="form-control"
+                                   value="https://example.com/server-address"
+                                   readonly
+                                   aria-label="api-address">
+                            <button class="btn btn-outline-secondary"
+                                    type="button"
+                                    onclick="copyToClipboard('api-address')">复制</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <!-- Script -->
     {% load static %}
     <script type="module" src="{% static 'channels.js' %}"></script>
     <script type="module">
     window.operateFormatter = (value, row, index) => {
-        const url = "{% url 'channel-detail' 'xxx' %}".replace("xxx", encodeURIComponent(row.channel_id));
-        return `<a class="btn btn-primary" href=${url} role="button">编辑</a>`
+        const encodedId = encodeURIComponent(row.channel_id);
+        const editUrl = "{% url 'channel-detail' 'xxx' %}".replace("xxx", encodedId);
+        const downloadUrl = "{% url 'index' %}" + `?channel=${encodedId}`;
+        const apiUrl = "{% url 'api:channel-register' 'xxx' %}".replace("xxx", encodedId);
+        return `
+        <a class="btn btn-primary" href=${editUrl} role="button">编辑</a>
+        <button class="btn btn-secondary" onclick="showShareModal({download:'${downloadUrl}',api:'${apiUrl}'})">分享</button>
+        `
     };
     </script>
 {% endblock content %}

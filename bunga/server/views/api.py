@@ -2,14 +2,14 @@ from urllib.parse import urlparse
 
 import requests
 
+from django import http
 from django.core.cache import cache
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User, Permission
-from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import generics, viewsets, status
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAdminUser, AllowAny
 from rest_framework.authtoken.models import Token
 
@@ -169,6 +169,92 @@ class ChannelViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         return super().destroy(request, pk)
+
+    @action(
+        detail=True,
+        methods=['post'],
+        permission_classes=[AllowAny],
+        serializer_class=serializers.RegisterPayloadSerializer,
+    )
+    def register(self, request, pk=None):
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400)
+        payload = serializer.validated_data()
+
+        try:
+            channel = self.get_object()
+        except http.Http404:
+            return Response({
+                'channel_id': 'Channel does not exist.',
+            }, status=status.HTTP_404_NOT_FOUND)
+        permission = Permission.objects.get(
+            codename=f'channel_{channel.channel_id}')
+
+        user_exists = User.objects.filter(
+            username=payload['username']).exists()
+        if not user_exists:
+            if not channel.allow_new_client:
+                return Response({
+                    'channel_id': 'Channel does not allow new client.',
+                }, status=status.HTTP_403_FORBIDDEN)
+            else:
+                user = User.objects.create_user(
+                    payload['username'], None, payload['password'])
+                user.user_permissions.add(permission)
+                user.save()
+                status_code = status.HTTP_201_CREATED
+        else:
+            user = authenticate(
+                username=payload['username'], password=payload['password'])
+            if user is None:
+                return Response({
+                    'password': 'Password is not correct.',
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                if not user.has_perm(f'server.{permission.codename}'):
+                    if not channel.allow_new_client:
+                        return Response({
+                            'channel_id': 'Channel does not allow new client.',
+                        }, status=status.HTTP_403_FORBIDDEN)
+                    else:
+                        user.user_permissions.add(permission)
+                        user.save()
+                        status_code = status.HTTP_200_OK
+                else:
+                    status_code = status.HTTP_200_OK
+
+        data = {
+            'token': Token.objects.get_or_create(user=user),
+        }
+
+        data['channel'] = _get_channel_info(channel.channel_id)
+
+        im_key = models.IMKey.get_solo()
+        data['chat'] = {
+            'service': 'tencent',
+            'app_id':  im_key.tencent_app_id,
+            'user_sig': tencent.generate_user_sig(im_key),
+        }
+
+        data['voice_call'] = {
+            'service': 'agora',
+            'key': models.VoiceKey.get_solo().agora_key,
+        }
+
+        bilibili = models.BilibiliAccount.objects.get(channel=channel)
+        data['bilibili'] = {
+            'sess': bilibili.sess
+        }
+
+        alist_host = models.AListHost.get_solo()
+        alist_account = models.AListAccount.objects.get(channel=channel)
+        data['alist'] = {
+            'host': alist_host.host,
+            'token': _get_alist_token(alist_host.host, alist_account.username, alist_account.password),
+        }
+
+        return Response(data, status=status_code)
 
 
 class BiliAccountViewSet(viewsets.ModelViewSet):
@@ -358,83 +444,7 @@ def alist_user_info(request: Request) -> Response:
 @permission_classes([AllowAny])
 # username, password, channel_id
 def register(request: Request) -> Response:
-    serializer = serializers.RegisterPayloadSerializer(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400)
-    payload = serializer.validated_data()
-
-    try:
-        channel = models.Channel.get(channel_id=payload['channel_id'])
-    except ObjectDoesNotExist:
-        return Response({
-            'channel_id': 'Channel does not exist.',
-        }, status=status.HTTP_404_NOT_FOUND)
-    permission = Permission.objects.get(
-        codename=f'channel_{channel.channel_id}')
-
-    user_exists = User.objects.filter(username=payload['username']).exists()
-    if not user_exists:
-        if not channel.allow_new_client:
-            return Response({
-                'channel_id': 'Channel does not allow new client.',
-            }, status=status.HTTP_403_FORBIDDEN)
-        else:
-            user = User.objects.create_user(
-                payload['username'], None, payload['password'])
-            user.user_permissions.add(permission)
-            user.save()
-            status_code = status.HTTP_201_CREATED
-    else:
-        user = authenticate(
-            username=payload['username'], password=payload['password'])
-        if user is None:
-            return Response({
-                'password': 'Password is not correct.',
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        else:
-            if not user.has_perm(f'server.{permission.codename}'):
-                if not channel.allow_new_client:
-                    return Response({
-                        'channel_id': 'Channel does not allow new client.',
-                    }, status=status.HTTP_403_FORBIDDEN)
-                else:
-                    user.user_permissions.add(permission)
-                    user.save()
-                    status_code = status.HTTP_200_OK
-            else:
-                status_code = status.HTTP_200_OK
-
-    data = {
-        'token': Token.objects.get_or_create(user=user),
-    }
-
-    data['channel'] = _get_channel_info(channel.channel_id)
-
-    im_key = models.IMKey.get_solo()
-    data['chat'] = {
-        'service': 'tencent',
-        'app_id':  im_key.tencent_app_id,
-        'user_sig': tencent.generate_user_sig(im_key),
-    }
-
-    data['voice_call'] = {
-        'service': 'agora',
-        'key': models.VoiceKey.get_solo().agora_key,
-    }
-
-    bilibili = models.BilibiliAccount.objects.get(channel=channel)
-    data['bilibili'] = {
-        'sess': bilibili.sess
-    }
-
-    alist_host = models.AListHost.get_solo()
-    alist_account = models.AListAccount.objects.get(channel=channel)
-    data['alist'] = {
-        'host': alist_host.host,
-        'token': _get_alist_token(alist_host.host, alist_account.username, alist_account.password),
-    }
-
-    return Response(data, status=status_code)
+    pass
 
 
 @cached_function(lambda channel_id: f'channel:{channel_id}')
