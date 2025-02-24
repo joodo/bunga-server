@@ -28,7 +28,7 @@ api_patterns = [
     # For client
     path('register', api.register, name='register'),
 ]
-router = routers.SimpleRouter()
+router = routers.DefaultRouter()
 router.register(r'channels', api.ChannelViewSet, basename='channel')
 router.register(r'bilibili-account', api.BiliAccountViewSet,
                 basename='bili-account')
@@ -38,6 +38,6 @@ api_patterns += router.urls
 
 urlpatterns = [
     path('', pages.index, name='index'),
-    path('dashboard/', include(dashboard_patterns,)),
+    path('dashboard/', include(dashboard_patterns)),
     path('api/', include((api_patterns, 'api'))),
 ]

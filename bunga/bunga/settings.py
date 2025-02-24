@@ -18,7 +18,7 @@ SECRET_KEY = 'django-insecure-4-gwh^en1#zgbu(f#b8+$qpi2qu6aha24yp&)78#za8j4e@by9
 DEBUG = True
 
 INTERNAL_IPS = [
-    "127.0.0.1",
+    # "127.0.0.1",
 ]
 
 ALLOWED_HOSTS = []
@@ -37,7 +37,8 @@ INSTALLED_APPS = [
     'django_bootstrap5',
     "server.apps.ServerConfig",
     'rest_framework',
-    'debug_toolbar',
+    'rest_framework.authtoken',
+    # 'debug_toolbar',
 ]
 
 MIDDLEWARE = [
@@ -46,10 +47,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    "django.contrib.auth.middleware.LoginRequiredMiddleware",
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
+    # "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
 ROOT_URLCONF = 'bunga.urls'
@@ -134,5 +134,5 @@ LOGIN_URL = reverse_lazy('admin:login')
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-    ]
+    ],
 }

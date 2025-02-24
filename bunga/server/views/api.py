@@ -176,11 +176,12 @@ class ChannelViewSet(viewsets.ModelViewSet):
         permission_classes=[AllowAny],
         serializer_class=serializers.RegisterPayloadSerializer,
     )
-    def register(self, request, pk=None):
+    def register(self, request: Request, pk=None) -> Response:
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400)
-        payload = serializer.validated_data()
+        payload = serializer.validated_data
+        print(payload)
 
         try:
             channel = self.get_object()
@@ -224,14 +225,15 @@ class ChannelViewSet(viewsets.ModelViewSet):
                 else:
                     status_code = status.HTTP_200_OK
 
+        token, _ = Token.objects.get_or_create(user=user)
         data = {
-            'token': Token.objects.get_or_create(user=user),
+            'token': token.key,
         }
 
         data['channel'] = _get_channel_info(channel.channel_id)
 
         im_key = models.IMKey.get_solo()
-        data['chat'] = {
+        data['im'] = {
             'service': 'tencent',
             'app_id':  im_key.tencent_app_id,
             'user_sig': tencent.generate_user_sig(im_key),
@@ -487,7 +489,10 @@ def _get_alist_token(host: str, username: str, password: str) -> str:
 
     data = response.json()
     if data['code'] != 200:
-        raise Exception(data)
+        raise Exception({
+            'message': 'alist login failed.',
+            'detail': data,
+        })
 
     return data['data']['token']
 

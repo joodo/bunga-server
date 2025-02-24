@@ -1,9 +1,10 @@
 from django.shortcuts import redirect, render
-from rest_framework import generics, renderers
+from django.contrib.auth.decorators import login_required
 
-from server import models, forms, serializers, mixins
+from server import models, forms, serializers
 
 
+@login_required
 def site(request):
     config = models.Site.get_solo()
     if request.method == 'POST':
@@ -28,12 +29,14 @@ def site(request):
     })
 
 
+@login_required
 def channel_list(request):
     return __render_dashboard(request, 'channels.djhtml', {
         'chat_serializer': serializers.IMKeySerializer,
     })
 
 
+@login_required
 def channel_detail(request, channel_id):
     return __render_dashboard(request, 'channel_detail.djhtml', {
         'channel_serializer': serializers.ChannelSerializer,
