@@ -429,7 +429,6 @@ def alist_user_info(request: Request) -> Response:
             'detail': str(e),
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    print(token)
     response = requests.get(
         host + '/api/me',
         headers={'Authorization': token},
