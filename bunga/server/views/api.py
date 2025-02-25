@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 import requests
 
 from django import http
+from django.http import HttpResponse
 from django.core.cache import cache
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User, Permission
@@ -181,7 +182,6 @@ class ChannelViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400)
         payload = serializer.validated_data
-        print(payload)
 
         try:
             channel = self.get_object()
@@ -257,6 +257,25 @@ class ChannelViewSet(viewsets.ModelViewSet):
         }
 
         return Response(data, status=status_code)
+
+    @action(
+        url_path='alist-thumbnail',
+        detail=True,
+        methods=['get'],
+        permission_classes=[AllowAny],
+    )
+    def alist_thumbnail(self, request: Request, pk=None) -> Response:
+        try:
+            requests_response = _get_alist_thumb(
+                request.query_params.get('path'),
+                pk,
+            )
+        except Exception as e:
+            return Response({
+                'detail': str(e),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        return _convert_to_http_response(requests_response)
 
 
 class BiliAccountViewSet(viewsets.ModelViewSet):
@@ -484,7 +503,7 @@ def _get_alist_token(host: str, username: str, password: str) -> str:
         {'Username': username, 'Password': password},
     )
     if not response.ok:
-        raise Exception(response.text)
+        raise Exception(response.status_code)
 
     data = response.json()
     if data['code'] != 200:
@@ -494,6 +513,53 @@ def _get_alist_token(host: str, username: str, password: str) -> str:
         })
 
     return data['data']['token']
+
+
+@cached_function(lambda path, _: f'alist-thumb:{hash(path)}')
+def _get_alist_thumb(path: str, channel_id: str) -> requests.models.Response:
+    channel = models.Channel.objects.get(pk=channel_id)
+
+    alist_host = models.AListHost.get_solo()
+
+    alist_account = models.AListAccount.objects.get(channel=channel)
+    alist_token = _get_alist_token(
+        alist_host.host, alist_account.username, alist_account.password)
+
+    host = _parse_host(alist_host.host)
+    response = requests.post(
+        host + '/api/fs/get',
+        json={'path': path},
+        headers={
+            'Authorization': alist_token,
+            'content-type': 'application/json',
+        },
+    )
+    if not response.ok:
+        raise Exception(response.status_code)
+
+    data = response.json()
+    if data['code'] != 200:
+        raise Exception({
+            'message': 'get file info failed.',
+            'detail': data,
+        })
+
+    url = data['data']['thumb']
+
+    return requests.get(
+        url,
+        headers={'Authorization': alist_token},
+    )
+
+
+def _convert_to_http_response(requests_response: requests.models.Response) -> HttpResponse:
+    django_response = HttpResponse(
+        content=requests_response.content,
+        status=requests_response.status_code,
+        content_type=requests_response.headers.get('Content-Type')
+    )
+
+    return django_response
 
 
 def _parse_host(host):
