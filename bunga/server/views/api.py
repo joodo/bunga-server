@@ -1,3 +1,6 @@
+# PEP-8
+
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 import requests
@@ -14,7 +17,7 @@ from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAdminUser, AllowAny
 from rest_framework.authtoken.models import Token
 
-from server.utils import network, bilibili, tencent, cached_function
+from server.utils import network, bilibili as bili_utils, tencent, cached_function
 from server import serializers, models
 
 
@@ -239,22 +242,37 @@ class ChannelViewSet(viewsets.ModelViewSet):
             'user_sig': tencent.generate_user_sig(im_key),
         }
 
-        data['voice_call'] = {
-            'service': 'agora',
-            'key': models.VoiceKey.get_solo().agora_key,
-        }
+        try:
+            data['voice_call'] = {
+                'service': 'agora',
+                'key': models.VoiceKey.get_solo().agora_key,
+            }
+        except:
+            data['voice_call'] = None
 
-        bilibili = models.BilibiliAccount.objects.get(channel=channel)
-        data['bilibili'] = {
-            'sess': bilibili.sess
-        }
+        try:
+            bilibili = models.BilibiliAccount.objects.get(channel=channel)
+            sess = bilibili.sess
 
-        alist_host = models.AListHost.get_solo()
-        alist_account = models.AListAccount.objects.get(channel=channel)
-        data['alist'] = {
-            'host': alist_host.host,
-            'token': _get_alist_token(alist_host.host, alist_account.username, alist_account.password),
-        }
+            info = _get_bili_info(sess)
+            mixinKey = bili_utils.get_mixin_key(**info['wbi'])
+
+            data['bilibili'] = {
+                'sess': sess,
+                'mixin_key': mixinKey,
+            }
+        except:
+            data['bilibili'] = None
+
+        try:
+            alist_host = models.AListHost.get_solo()
+            alist_account = models.AListAccount.objects.get(channel=channel)
+            data['alist'] = {
+                'host': alist_host.host,
+                'token': _get_alist_token(alist_host.host, alist_account.username, alist_account.password),
+            }
+        except:
+            data['alist'] = None
 
         return Response(data, status=status_code)
 
@@ -292,7 +310,7 @@ class BiliAccountViewSet(viewsets.ModelViewSet):
         if cache.get(cache_key):
             return instance
 
-        if bilibili.keep_sess_fresh(instance):
+        if bili_utils.keep_sess_fresh(instance):
             cache.set(cache_key, True, 7*24*3600)
         return instance
 
@@ -360,40 +378,13 @@ def bilibili_info(request: Request) -> Response:
             'message': '"sess" is required.',
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    cache_key = 'bili_info:' + sess
-    if 'force' not in request.GET:
-        cached_info = cache.get(cache_key, default=None)
-        if cached_info:
-            return Response(cached_info)
+    force = 'force' in request.GET
 
-    response = requests.get(
-        'https://api.bilibili.com/x/web-interface/nav',
-        headers={'User-Agent': network.user_agent},
-        cookies={'SESSDATA': request.GET['sess']},
-    )
-    if (not response.ok):
-        return Response({
-            'err_code': 1,
-            'message': response.text,
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    try:
+        info = _get_bili_info(sess, force)
+    except Exception as e:
+        return Response(e.args[0], status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    data = response.json()
-    if (data['code'] != 0):
-        return Response({
-            'err_code': 2,
-            'message': data,
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    info = {
-        'avatar': data['data']['face'],
-        'username': data['data']['uname'],
-        'vip': data['data']['vipStatus'] == 1,
-        'wbi': {
-            'img_key': data['data']['wbi_img']['img_url'],
-            'sub_key': data['data']['wbi_img']['sub_url'],
-        },
-    }
-    cache.set(cache_key, info)
     return Response(info)
 
 
@@ -460,11 +451,48 @@ def alist_user_info(request: Request) -> Response:
     })
 
 
-@api_view(['POST'])
-@permission_classes([AllowAny])
-# username, password, channel_id
-def register(request: Request) -> Response:
-    pass
+def _get_bili_info(sess: str, force: bool = False):
+    cache_key = 'bili_info:' + sess
+    cached_info = cache.get(cache_key, default=None)
+    if not force and cached_info:
+        return cached_info
+
+    response = requests.get(
+        'https://api.bilibili.com/x/web-interface/nav',
+        headers={'User-Agent': network.user_agent},
+        cookies={'SESSDATA': sess},
+    )
+    if (not response.ok):
+        raise Exception({
+            'err_code': 1,
+            'message': response.text,
+        })
+
+    data = response.json()
+    if (data['code'] != 0):
+        raise Exception({
+            'err_code': 2,
+            'message': data,
+        })
+
+    info = {
+        'avatar': data['data']['face'],
+        'username': data['data']['uname'],
+        'vip': data['data']['vipStatus'] == 1,
+        'wbi': {
+            'img_key': data['data']['wbi_img']['img_url'],
+            'sub_key': data['data']['wbi_img']['sub_url'],
+        },
+    }
+
+    now = datetime.now()
+    end_of_day = (now + timedelta(days=1)).replace(hour=0,
+                                                   minute=0,
+                                                   second=0,
+                                                   microsecond=0)
+    seconds_remaining = (end_of_day - now).total_seconds()
+    cache.set(cache_key, info, seconds_remaining)
+    return info
 
 
 @cached_function(lambda channel_id: f'channel:{channel_id}')
