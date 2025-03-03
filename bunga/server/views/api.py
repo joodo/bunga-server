@@ -1,6 +1,7 @@
 # PEP-8
 
 from datetime import datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
@@ -181,11 +182,47 @@ class ChannelViewSet(viewsets.ModelViewSet):
         serializer_class=serializers.RegisterPayloadSerializer,
     )
     def register(self, request: Request, pk=None) -> Response:
+        config = models.IMKey.get_solo()
+
+        def register_user() -> User:
+            response = tencent.request(
+                config,
+                'im_open_login_svc/account_import',
+                {
+                    'UserID': payload['username'],
+                },
+            )
+            if (response.get('ErrorCode') != 0):
+                raise Exception(response.get('ErrorInfo'))
+
+            return User.objects.create_user(
+                payload['username'],
+                None,
+                payload['password'],
+            )
+
+        def join_user_in_channel(user: User, channel: models.Channel, permission: Permission) -> None:
+            response = tencent.request(
+                config,
+                'group_open_http_svc/add_group_member',
+                {
+                    'GroupId': channel.channel_id,
+                    'MemberList': [{'Member_Account': user.username}],
+                },
+            )
+
+            if (response.get('ErrorCode') != 0):
+                raise Exception(response.get('ErrorInfo'))
+
+            user.user_permissions.add(permission)
+            user.save()
+
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400)
         payload = serializer.validated_data
 
+        # Check if channel exist
         try:
             channel = self.get_object()
         except http.Http404:
@@ -198,34 +235,47 @@ class ChannelViewSet(viewsets.ModelViewSet):
         user_exists = User.objects.filter(
             username=payload['username']).exists()
         if not user_exists:
+            # User not exist and channel forbid join
             if not channel.allow_new_client:
                 return Response({
                     'channel_id': 'Channel does not allow new client.',
                 }, status=status.HTTP_403_FORBIDDEN)
+            # Else create user and join it!
             else:
-                user = User.objects.create_user(
-                    payload['username'], None, payload['password'])
-                user.user_permissions.add(permission)
-                user.save()
+                try:
+                    user = register_user()
+                    join_user_in_channel(user, channel, permission)
+                except Exception as e:
+                    return Response({
+                        'detail': str(e),
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 status_code = status.HTTP_201_CREATED
         else:
             user = authenticate(
                 username=payload['username'], password=payload['password'])
             if user is None:
+                # Password not corrent
                 return Response({
                     'password': 'Password is not correct.',
                 }, status=status.HTTP_401_UNAUTHORIZED)
             else:
                 if not user.has_perm(f'server.{permission.codename}'):
+                    # Not in channel but channel forbid join...
                     if not channel.allow_new_client:
                         return Response({
                             'channel_id': 'Channel does not allow new client.',
                         }, status=status.HTTP_403_FORBIDDEN)
+                    # Join it!
                     else:
-                        user.user_permissions.add(permission)
-                        user.save()
+                        try:
+                            join_user_in_channel(user, channel, permission)
+                        except Exception as e:
+                            return Response({
+                                'detail': str(e),
+                            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                         status_code = status.HTTP_200_OK
                 else:
+                    # User exist and already join channel, do nothing
                     status_code = status.HTTP_200_OK
 
         token, _ = Token.objects.get_or_create(user=user)
@@ -239,7 +289,8 @@ class ChannelViewSet(viewsets.ModelViewSet):
         data['im'] = {
             'service': 'tencent',
             'app_id':  im_key.tencent_app_id,
-            'user_sig': tencent.generate_user_sig(im_key),
+            'user_id': payload['username'],
+            'user_sig': tencent.generate_user_sig(config, payload['username']),
         }
 
         try:
@@ -475,13 +526,18 @@ def _get_bili_info(sess: str, force: bool = False):
             'message': data,
         })
 
+    def get_filename_from_url(url):
+        path = urlparse(url).path
+        filename = Path(path).stem
+        return filename
+
     info = {
         'avatar': data['data']['face'],
         'username': data['data']['uname'],
         'vip': data['data']['vipStatus'] == 1,
         'wbi': {
-            'img_key': data['data']['wbi_img']['img_url'],
-            'sub_key': data['data']['wbi_img']['sub_url'],
+            'img_key': get_filename_from_url(data['data']['wbi_img']['img_url']),
+            'sub_key': get_filename_from_url(data['data']['wbi_img']['sub_url']),
         },
     }
 

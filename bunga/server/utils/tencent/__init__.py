@@ -5,10 +5,10 @@ import requests
 from .tls_sig_api import TLSSigAPIv2
 
 
-def generate_user_sig(tencent_config: models.Model):
+def generate_user_sig(tencent_config: models.Model, userId: str) -> str:
     api = TLSSigAPIv2(tencent_config.tencent_app_id,
                       tencent_config.tencent_app_key)
-    return api.genUserSig(tencent_config.tencent_admin_name)
+    return api.genUserSig(userId)
 
 
 def request(
@@ -17,7 +17,8 @@ def request(
     payload: dict = {},
 ) -> dict:
     host = 'console.tim.qq.com'
-    user_sig = generate_user_sig(tencent_config)
+    user_sig = generate_user_sig(
+        tencent_config, tencent_config.tencent_admin_name)
     random_number = random.randint(0, 4294967295)
 
     url = (
