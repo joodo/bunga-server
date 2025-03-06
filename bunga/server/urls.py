@@ -25,7 +25,8 @@ api_patterns = [
     path('bilibili/info', api.bilibili_info, name='bilibili-info'),
     path('alist/info', api.alist_info, name='alist_info'),
     path('alist/user-info', api.alist_user_info, name='alist-user-info'),
-    path('chat/config', api.IMKey.as_view(), name='chat_config'),
+    path('chat/config', api.IMKey.as_view(), name='chat-config'),
+    path('voice/config', api.VoiceKey.as_view(), name='voice-config'),
 ]
 router = routers.DefaultRouter()
 router.register(r'channels', api.ChannelViewSet, basename='channel')

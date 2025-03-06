@@ -12,7 +12,7 @@
         <div class="card-body">
             <form id="chat-config-form"
                   class="bunga-form"
-                  action="{% url 'api:chat_config' %}"
+                  action="{% url 'api:chat-config' %}"
                   method="put">
                 <input type="hidden" name="_method" value="put" />
                 {% csrf_token %}

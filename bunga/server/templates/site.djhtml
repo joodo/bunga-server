@@ -16,6 +16,22 @@
         </div>
     </div>
     <div class="card mb-3">
+        <div class="card-header">
+            语音设置（<a href="https://www.shengwang.cn/voicecall/">声网</a>）
+        </div>
+        <div class="card-body">
+            <form id="chat-config-form"
+                  class="bunga-form"
+                  action="{% url 'api:voice-config' %}"
+                  method="put">
+                <input type="hidden" name="_method" value="put" />
+                {% csrf_token %}
+                {% render_form voice_key_serializer %}
+                {% bootstrap_button "保存" button_type="submit" button_class="btn-primary" %}
+            </form>
+        </div>
+    </div>
+    <div class="card mb-3">
         <div class="card-header">AList 设置</div>
         <div class="row g-0">
             <div class="col-md-8">

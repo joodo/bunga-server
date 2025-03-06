@@ -17,6 +17,14 @@ class AlistHostSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class VoiceKeySerializer(serializers.ModelSerializer):
+    site = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = models.VoiceKey
+        fields = '__all__'
+
+
 class IMKeySerializer(serializers.ModelSerializer):
     site = serializers.PrimaryKeyRelatedField(read_only=True)
 

@@ -7,24 +7,14 @@ from server import models, forms, serializers
 @login_required
 def site(request):
     config = models.Site.get_solo()
-    if request.method == 'POST':
-        updated_form = request.GET.get('update')
-        match updated_form:
-            case 'basic':
-                form = forms.SiteBasicForm(request.POST, instance=config)
-                form.save()
-            case 'alist':
-                form = forms.SiteAlistForm(request.POST, instance=config)
-                form.save()
-            case _:
-                raise Exception('Unknown update type: ' + str(updated_form))
-        return __render_saved(request)
 
     site_serializer = serializers.SiteSerializer()
     alist_serializer = serializers.AlistHostSerializer()
+    voice_key_serializer = serializers.VoiceKeySerializer()
     return __render_dashboard(request, 'site.djhtml', {
         'site_id': config.pk,
         'site_serializer': site_serializer,
+        'voice_key_serializer': voice_key_serializer,
         'alist_serializer': alist_serializer,
     })
 

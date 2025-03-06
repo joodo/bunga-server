@@ -46,6 +46,14 @@ class IMKey(generics.RetrieveUpdateAPIView):
         return models.IMKey.get_solo()
 
 
+class VoiceKey(generics.RetrieveUpdateAPIView):
+    serializer_class = serializers.VoiceKeySerializer
+    permission_classes = [IsAdminUser]
+
+    def get_object(self):
+        return models.VoiceKey.get_solo()
+
+
 class ChannelViewSet(viewsets.ModelViewSet):
     queryset = models.Channel.objects.all()
     serializer_class = serializers.ChannelSerializer
