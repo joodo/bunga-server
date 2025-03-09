@@ -18,7 +18,7 @@ from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAdminUser, AllowAny
 from rest_framework.authtoken.models import Token
 
-from server.utils import network, bilibili as bili_utils, tencent, cached_function
+from server.utils import network, bilibili as bili_utils, tencent, agora, cached_function
 from server import serializers, models
 
 
@@ -302,9 +302,16 @@ class ChannelViewSet(viewsets.ModelViewSet):
         }
 
         try:
+            agoraInfo = models.VoiceKey.get_solo()
             data['voice_call'] = {
                 'service': 'agora',
-                'key': models.VoiceKey.get_solo().agora_key,
+                'key': agoraInfo.agora_key,
+                'channel_token': agora.generateToken(
+                    agoraInfo.agora_key,
+                    agoraInfo.agora_certification,
+                    channel.channel_id,
+                    agora.uidFromName(payload['username']),
+                ),
             }
         except:
             data['voice_call'] = None
