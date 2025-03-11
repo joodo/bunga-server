@@ -625,9 +625,13 @@ def _get_alist_thumb(path: str, channel_id: str) -> requests.models.Response:
         alist_host.host, alist_account.username, alist_account.password)
 
     host = _parse_host(alist_host.host)
+    # walkthrough: alist bug cause user without '/' as
+    # root path cannot fetch thumbnail url by 'fs/get/', so use 'fs/list/' here
+    dir = str(Path(path).parent)
+    name = Path(path).name
     response = requests.post(
-        host + '/api/fs/get',
-        json={'path': path},
+        host + '/api/fs/list',
+        json={'path': dir},
         headers={
             'Authorization': alist_token,
             'content-type': 'application/json',
@@ -643,7 +647,8 @@ def _get_alist_thumb(path: str, channel_id: str) -> requests.models.Response:
             'detail': data,
         })
 
-    url = data['data']['thumb']
+    url = next(i['thumb']
+               for i in data['data']['content'] if i['name'] == name)
 
     return requests.get(
         url,
