@@ -13,7 +13,8 @@ function setDownloadButton() {
   fetch("https://gitee.com/api/v5/repos/joodo2/bunga_player/releases/latest")
     .then((response) => response.json())
     .then((response) => {
-      const tagName = response["tagname"];
+      console.log(response);
+      const tagName = response["tag_name"];
 
       const assets = response["assets"];
       const os = getOS();
@@ -41,9 +42,9 @@ function setDownloadButton() {
 
 function getOS() {
   if (navigator.userAgent.indexOf("Win") != -1) return "Windows";
+  if (navigator.userAgent.indexOf("like Mac") != -1) return "iOS";
   if (navigator.userAgent.indexOf("Mac") != -1) return "macOS";
   if (navigator.userAgent.indexOf("Linux") != -1) return "Linux";
   if (navigator.userAgent.indexOf("Android") != -1) return "Android";
-  if (navigator.userAgent.indexOf("like Mac") != -1) return "iOS";
   return "unknown";
 }
