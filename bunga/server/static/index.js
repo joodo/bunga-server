@@ -13,7 +13,6 @@ function setDownloadButton() {
   fetch("https://gitee.com/api/v5/repos/joodo2/bunga_player/releases/latest")
     .then((response) => response.json())
     .then((response) => {
-      console.log(response);
       const tagName = response["tag_name"];
 
       const assets = response["assets"];
