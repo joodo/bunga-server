@@ -27,7 +27,7 @@ function setDownloadButton() {
           asset = assets.find((e) => e["name"].endsWith(".exe"));
           break;
         case "Android":
-          asset = assets.find((e) => e["name"].endsWith(".arm64-v8a.apk"));
+          asset = assets.find((e) => e["name"].endsWith("arm64-v8a.apk"));
           break;
       }
 
