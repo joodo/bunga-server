@@ -1,32 +1,20 @@
 # PEP-8
 
+from datetime import timedelta
+
 from pathlib import Path
 
 from django.urls import reverse_lazy
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-4-gwh^en1#zgbu(f#b8+$qpi2qu6aha24yp&)78#za8j4e@by9'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
-
-INTERNAL_IPS = [
-    # "127.0.0.1",
-]
-
-ALLOWED_HOSTS = ['*']
-
-
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -35,10 +23,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'solo.apps.SoloAppConfig',
     'django_bootstrap5',
-    "server.apps.ServerConfig",
+    'server.apps.ServerConfig',
+    'chat',
     'rest_framework',
     'rest_framework.authtoken',
-    # 'debug_toolbar',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -50,7 +39,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # "debug_toolbar.middleware.DebugToolbarMiddleware",
+    # 'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
@@ -59,7 +48,7 @@ ROOT_URLCONF = 'bunga.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / "bunga" / "templates"],
+        'DIRS': [BASE_DIR / 'bunga' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -72,18 +61,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'bunga.wsgi.application'
-
-
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+ASGI_APPLICATION = 'bunga.asgi.application'
 
 
 # Password validation
@@ -121,7 +99,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -133,6 +111,54 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = reverse_lazy('admin:login')
 
 
+# Log
+LOG_DIR = BASE_DIR / 'logs'
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+        'file': {
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': LOG_DIR / 'django.log',
+            'when': 'midnight',
+            'interval': 1,
+            'backupCount': 7,
+            'formatter': 'standard',
+            'encoding': 'utf-8',
+        },
+    },
+    'loggers': {
+        'bunga': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+}
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
 # REST framework
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
@@ -142,4 +168,33 @@ REST_FRAMEWORK = {
         'bunga.renderers.JSONRendererWithCharset',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'bunga.auth.JWTRestAuthentication',
+    ],
 }
+
+
+# Simple JWT
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=2),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'ALGORITHM': 'HS256',
+}
+
+
+try:
+    from .local_settings import *
+
+    try:
+        if USE_DEBUG_TOOLBAR:
+            INTERNAL_IPS = ['127.0.0.1']
+            INSTALLED_APPS += ['debug_toolbar']
+            MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+    except NameError:
+        pass
+
+    SIMPLE_JWT['SIGNING_KEY'] = SECRET_KEY
+except ImportError:
+    pass

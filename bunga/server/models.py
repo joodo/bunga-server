@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.dispatch import receiver
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from solo.models import SingletonModel
@@ -75,3 +76,26 @@ class BilibiliAccount(models.Model):
     sess = models.CharField(max_length=500, default='')
     bili_jct = models.CharField(max_length=200, default='')
     refresh_token = models.CharField(max_length=200, default='')
+
+
+class VideoRecord(models.Model):
+    channel = models.ForeignKey(Channel, on_delete=models.CASCADE)
+    record_id = models.CharField(max_length=200)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('channel', 'record_id')
+
+
+class Subtitle(models.Model):
+    record = models.ForeignKey(
+        VideoRecord,
+        on_delete=models.CASCADE,
+        related_name='subtitles',
+    )
+    uploader = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
+    name = models.CharField(max_length=200)
+    file = models.FileField(upload_to='subtitles/')

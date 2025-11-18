@@ -1,9 +1,11 @@
 # PEP-8
 
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
+from django.shortcuts import get_object_or_404
 import requests
 
 from django import http
@@ -16,7 +18,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAdminUser, AllowAny
-from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from server.utils import network, bilibili as bili_utils, tencent, agora, cached_function
 from server import serializers, models
@@ -193,35 +195,13 @@ class ChannelViewSet(viewsets.ModelViewSet):
         config = models.IMKey.get_solo()
 
         def register_user() -> User:
-            response = tencent.request(
-                config,
-                'im_open_login_svc/account_import',
-                {
-                    'UserID': payload['username'],
-                },
-            )
-            if (response.get('ErrorCode') != 0):
-                raise Exception(response.get('ErrorInfo'))
-
             return User.objects.create_user(
                 payload['username'],
                 None,
                 payload['password'],
             )
 
-        def join_user_in_channel(user: User, channel: models.Channel, permission: Permission) -> None:
-            response = tencent.request(
-                config,
-                'group_open_http_svc/add_group_member',
-                {
-                    'GroupId': channel.channel_id,
-                    'MemberList': [{'Member_Account': user.username}],
-                },
-            )
-
-            if (response.get('ErrorCode') != 0):
-                raise Exception(response.get('ErrorInfo'))
-
+        def join_user_to_channel(user: User) -> None:
             user.user_permissions.add(permission)
             user.save()
 
@@ -252,7 +232,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
             else:
                 try:
                     user = register_user()
-                    join_user_in_channel(user, channel, permission)
+                    join_user_to_channel(user)
                 except Exception as e:
                     return Response({
                         'detail': str(e),
@@ -276,7 +256,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
                     # Join it!
                     else:
                         try:
-                            join_user_in_channel(user, channel, permission)
+                            join_user_to_channel(user)
                         except Exception as e:
                             return Response({
                                 'detail': str(e),
@@ -286,9 +266,12 @@ class ChannelViewSet(viewsets.ModelViewSet):
                     # User exist and already join channel, do nothing
                     status_code = status.HTTP_200_OK
 
-        token, _ = Token.objects.get_or_create(user=user)
+        refresh = RefreshToken.for_user(user)
         data = {
-            'token': token.key,
+            'token': {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            },
         }
 
         data['channel'] = _get_channel_info(channel.channel_id)
@@ -386,6 +369,52 @@ class AListAccountViewSet(viewsets.ModelViewSet):
     lookup_field = 'channel_id'
     serializer_class = serializers.AListAccountSerializer
     permission_classes = [IsAdminUser]
+
+
+class VideoRecordRetrieveView(generics.RetrieveAPIView):
+    serializer_class = serializers.VideoRecordSerializer
+
+    def get_queryset(self):
+        channel_id = self.kwargs['channel_id']
+        return models.VideoRecord.objects.filter(channel_id=channel_id)
+
+    def get_object(self):
+        queryset = self.get_queryset()
+        record_id = self.kwargs['record_id']
+        channel_id = self.kwargs['channel_id']
+
+        try:
+            return queryset.get(record_id=record_id)
+        except models.VideoRecord.DoesNotExist:
+            obj = queryset.create(record_id=record_id, channel_id=channel_id)
+            return obj
+
+
+class SubtitleCreateView(generics.CreateAPIView):
+    serializer_class = serializers.SubtitleSerializer
+
+    def perform_create(self, serializer):
+        record_id = self.kwargs['record_id']
+        channel_id = self.kwargs['channel_id']
+        channel = get_object_or_404(models.Channel, channel_id=channel_id)
+        record = get_object_or_404(
+            models.VideoRecord,
+            channel=channel,
+            record_id=record_id,
+        )
+
+        models.Subtitle.objects.filter(
+            record=record,
+            uploader=self.request.user,
+        ).delete()
+
+        uploaded_file = serializer.validated_data['file']
+        name_without_ext, _ = os.path.splitext(uploaded_file.name)
+        serializer.save(
+            record=record,
+            uploader=self.request.user,
+            name=name_without_ext,
+        )
 
 
 @permission_classes([IsAdminUser])

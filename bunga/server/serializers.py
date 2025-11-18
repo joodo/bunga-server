@@ -59,6 +59,21 @@ class AListAccountSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class SubtitleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.Subtitle
+        read_only_fields = ['record', 'uploader', 'name']
+        fields = '__all__'
+
+
+class VideoRecordSerializer(serializers.ModelSerializer):
+    subtitles = SubtitleSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = models.VideoRecord
+        fields = '__all__'
+
+
 class RegisterPayloadSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150, required=True)
     password = serializers.CharField(required=True)
