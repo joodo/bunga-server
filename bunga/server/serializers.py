@@ -60,6 +60,9 @@ class AListAccountSerializer(serializers.ModelSerializer):
 
 
 class SubtitleSerializer(serializers.ModelSerializer):
+    uploader = serializers.CharField(
+        source='uploader.username', read_only=True)
+
     class Meta:
         model = models.Subtitle
         read_only_fields = ['record', 'uploader', 'name']
