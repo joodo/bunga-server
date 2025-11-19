@@ -67,7 +67,7 @@ class SubtitleSerializer(serializers.ModelSerializer):
 
 
 class VideoRecordSerializer(serializers.ModelSerializer):
-    subtitles = SubtitleSerializer(many=True, read_only=True)
+    subtitle = SubtitleSerializer(read_only=True)
 
     class Meta:
         model = models.VideoRecord

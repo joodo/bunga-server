@@ -88,10 +88,10 @@ class VideoRecord(models.Model):
 
 
 class Subtitle(models.Model):
-    record = models.ForeignKey(
+    record = models.OneToOneField(
         VideoRecord,
         on_delete=models.CASCADE,
-        related_name='subtitles',
+        related_name='subtitle',
     )
     uploader = models.ForeignKey(
         settings.AUTH_USER_MODEL,

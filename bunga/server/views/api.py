@@ -403,10 +403,7 @@ class SubtitleCreateView(generics.CreateAPIView):
             record_id=record_id,
         )
 
-        models.Subtitle.objects.filter(
-            record=record,
-            uploader=self.request.user,
-        ).delete()
+        models.Subtitle.objects.filter(record=record).delete()
 
         uploaded_file = serializer.validated_data['file']
         name_without_ext, _ = os.path.splitext(uploaded_file.name)
