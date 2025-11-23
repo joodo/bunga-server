@@ -1,5 +1,7 @@
 # PEP-8
 
+from datetime import timedelta
+
 from django.db import models
 from django.dispatch import receiver
 from django.conf import settings
@@ -39,6 +41,9 @@ class VoiceKey(SingletonModel):
 class Channel(models.Model):
     channel_id = models.CharField(max_length=100, primary_key=True)
     allow_new_client = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.channel_id
 
 
 @receiver(models.signals.post_save, sender=Channel)
@@ -81,10 +86,22 @@ class BilibiliAccount(models.Model):
 class VideoRecord(models.Model):
     channel = models.ForeignKey(Channel, on_delete=models.CASCADE)
     record_id = models.CharField(max_length=200)
+
     updated_at = models.DateTimeField(auto_now=True)
+
+    title = models.CharField(max_length=200)
+    thumb_url = models.URLField(max_length=400, null=True)
+    source = models.CharField(max_length=200)
+    path = models.CharField(max_length=200)
+
+    position = models.DurationField(default=timedelta(0))
+
+    def __str__(self):
+        return f'[{self.channel.channel_id}] {self.title} ({self.updated_at.strftime("%Y-%m-%d %H:%M:%S")})'
 
     class Meta:
         unique_together = ('channel', 'record_id')
+        ordering = ('channel', '-updated_at')
 
 
 class Subtitle(models.Model):

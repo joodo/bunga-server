@@ -10,11 +10,10 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/asgi/
 import os
 
 from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
 from django.core.asgi import get_asgi_application
 
-from chat.middlewares import JWTAuthMiddleware
-from chat.urls import websocket_urlpatterns
+from bunga.middlewares import JWTAuthMiddleware
+from server.urls import websocket_urlpatterns
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'bunga.settings')
 

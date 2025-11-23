@@ -1,7 +1,7 @@
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 
-from server import models, forms, serializers
+from server import models, serializers
 
 
 @login_required

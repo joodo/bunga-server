@@ -5,6 +5,7 @@ from django.views.generic.base import RedirectView
 from rest_framework import routers
 from rest_framework_simplejwt.views import token_obtain_pair, token_refresh, token_verify
 
+from . import consumers
 from .views import pages, dashboard, api
 
 dashboard_patterns = [
@@ -31,10 +32,6 @@ api_patterns = [
     path('alist/user-info', api.alist_user_info, name='alist-user-info'),
     path('chat/config', api.IMKey.as_view(), name='chat-config'),
     path('voice/config', api.VoiceKey.as_view(), name='voice-config'),
-    path('channels/<str:channel_id>/records/<str:record_id>/',
-         api.VideoRecordRetrieveView.as_view(),
-         name='records',
-         ),
     path('channels/<str:channel_id>/records/<str:record_id>/subtitle',
          api.SubtitleCreateView.as_view(),
          name='subtitle-upload',
@@ -47,10 +44,17 @@ view_set_router.register(r'bilibili-account', api.BiliAccountViewSet,
                          basename='bili-account')
 view_set_router.register(r'alist-account', api.AListAccountViewSet,
                          basename='alist-account')
+view_set_router.register(r'channels/<str:channel_id>/records', api.VideoRecordViewSet,
+                         basename='video-record')
 api_patterns += view_set_router.urls
 
 urlpatterns = [
     path('', pages.index, name='index'),
     path('dashboard/', include(dashboard_patterns)),
     path('api/', include((api_patterns, 'api'))),
+]
+
+
+websocket_urlpatterns = [
+    path('chat/<str:channel_id>/', consumers.ChatConsumer.as_asgi()),
 ]

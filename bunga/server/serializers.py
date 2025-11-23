@@ -3,6 +3,23 @@ from rest_framework import serializers
 from . import models
 
 
+class DurationSecondsField(serializers.Field):
+    """
+    DRF Field: store a timedelta as float seconds
+    """
+
+    def to_representation(self, value):
+        return value.total_seconds() if value else 0.0
+
+    def to_internal_value(self, data):
+        try:
+            seconds = float(data)
+        except (ValueError, TypeError):
+            raise serializers.ValidationError("Must be a number (seconds)")
+        from datetime import timedelta
+        return timedelta(seconds=seconds)
+
+
 class SiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Site
@@ -69,14 +86,27 @@ class SubtitleSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class VideoRecordSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.VideoRecord
+        fields = ('record_id', 'title', 'thumb_url', 'source', 'path')
+
+
 class VideoRecordSerializer(serializers.ModelSerializer):
     subtitle = SubtitleSerializer(read_only=True)
+    position = DurationSecondsField(required=False)
 
     class Meta:
         model = models.VideoRecord
-        fields = '__all__'
+        fields = ('record_id', 'title', 'thumb_url', 'source', 'path',
+                  'subtitle', 'position')
 
 
 class RegisterPayloadSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150, required=True)
     password = serializers.CharField(required=True)
+
+
+class AlohaPayloadSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=200, required=True)
+    color_hue = serializers.IntegerField(required=True)

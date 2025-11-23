@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
+from dataclasses import asdict
 
 from django.shortcuts import get_object_or_404
 import requests
@@ -13,15 +14,21 @@ from django.http import HttpResponse
 from django.core.cache import cache
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User, Permission
-from rest_framework import generics, viewsets, status
+from rest_framework import generics, viewsets, status, mixins
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAdminUser, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from channels.layers import get_channel_layer
+from asgiref.sync import sync_to_async
 
-from server.utils import network, bilibili as bili_utils, tencent, agora, cached_function
 from server import serializers, models
+from server.utils import (network, bilibili as bili_utils, tencent, agora,
+                          cached_function, auto_validated, async_action)
+from server.channel_cache import ChannelCache, ChannelStatus, UserInfo
+from server.models import dataclasses
+from utils.log import logger
 
 
 class Site(generics.RetrieveUpdateAPIView):
@@ -59,8 +66,8 @@ class VoiceKey(generics.RetrieveUpdateAPIView):
 class ChannelViewSet(viewsets.ModelViewSet):
     queryset = models.Channel.objects.all()
     serializer_class = serializers.ChannelSerializer
-    permission_classes = [IsAdminUser]
 
+    @permission_classes([IsAdminUser])
     def list(self, request: Request) -> Response:
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
@@ -96,6 +103,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
         } for item in response['GroupInfo']]
         return Response(data)
 
+    @permission_classes([IsAdminUser])
     def create(self, request: Request) -> Response:
         config = models.IMKey.get_solo()
 
@@ -130,12 +138,14 @@ class ChannelViewSet(viewsets.ModelViewSet):
 
         return Response(data, status=status.HTTP_201_CREATED)
 
+    @permission_classes([IsAdminUser])
     def retrieve(self, request: Request, pk=None) -> Response:
         instance = self.get_object()
         data = _get_channel_info(instance.channel_id)
         serializer = self.get_serializer(instance)
         return Response(data | serializer.data)
 
+    @permission_classes([IsAdminUser])
     def partial_update(self, request: Request, pk=None):
         instance = self.get_object()
 
@@ -163,6 +173,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
             'detail': 'success',
         }, status=status.HTTP_206_PARTIAL_CONTENT)
 
+    @permission_classes([IsAdminUser])
     def destroy(self, request: Request, pk=None) -> Response:
         if not pk:
             return Response({
@@ -191,24 +202,20 @@ class ChannelViewSet(viewsets.ModelViewSet):
         permission_classes=[AllowAny],
         serializer_class=serializers.RegisterPayloadSerializer,
     )
-    def register(self, request: Request, pk=None) -> Response:
+    @auto_validated
+    def register(self, validated, request: Request, pk=None) -> Response:
         config = models.IMKey.get_solo()
 
         def register_user() -> User:
             return User.objects.create_user(
-                payload['username'],
+                validated['username'],
                 None,
-                payload['password'],
+                validated['password'],
             )
 
         def join_user_to_channel(user: User) -> None:
             user.user_permissions.add(permission)
             user.save()
-
-        serializer = self.serializer_class(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400)
-        payload = serializer.validated_data
 
         # Check if channel exist
         try:
@@ -221,7 +228,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
             codename=f'channel_{channel.channel_id}')
 
         user_exists = User.objects.filter(
-            username=payload['username']).exists()
+            username=validated['username']).exists()
         if not user_exists:
             # User not exist and channel forbid join
             if not channel.allow_new_client:
@@ -240,7 +247,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
                 status_code = status.HTTP_201_CREATED
         else:
             user = authenticate(
-                username=payload['username'], password=payload['password'])
+                username=validated['username'], password=validated['password'])
             if user is None:
                 # Password not corrent
                 return Response({
@@ -280,8 +287,8 @@ class ChannelViewSet(viewsets.ModelViewSet):
         data['im'] = {
             'service': 'tencent',
             'app_id':  im_key.tencent_app_id,
-            'user_id': payload['username'],
-            'user_sig': tencent.generate_user_sig(config, payload['username']),
+            'user_id': validated['username'],
+            'user_sig': tencent.generate_user_sig(config, validated['username']),
         }
 
         try:
@@ -293,7 +300,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
                     agoraInfo.agora_key,
                     agoraInfo.agora_certification,
                     channel.channel_id,
-                    agora.uidFromName(payload['username']),
+                    agora.uidFromName(validated['username']),
                 ),
             }
         except:
@@ -324,6 +331,132 @@ class ChannelViewSet(viewsets.ModelViewSet):
             data['alist'] = None
 
         return Response(data, status=status_code)
+
+    @action(
+        detail=True,
+        methods=['post'],
+        serializer_class=serializers.AlohaPayloadSerializer
+    )
+    @auto_validated
+    def aloha(self, validated, request: Request, pk=None):
+        validated['id'] = request.user.username
+
+        channel = self.get_object()
+        channel_id = channel.channel_id
+
+        channel_cache = ChannelCache(channel_id)
+        user_info = UserInfo(**validated)
+        channel_cache.upsert_user(user_info)
+
+        projection = channel_cache.current_projection
+        if not projection:
+            return Response({'current_projection': None}, status=status.HTTP_200_OK)
+
+        record = models.VideoRecord.objects.filter(
+            channel=channel, record_id=projection.record_id,
+        ).first()
+        record_data = serializers.VideoRecordSerializer(
+            record).data
+        return Response({
+            'current_projection': {
+                'sharer': asdict(projection.sharer),
+                'video_record': record_data,
+            }}, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=['post'],
+        serializer_class=serializers.VideoRecordSerializer
+    )
+    @auto_validated
+    @async_action
+    async def project(self, validated, request: Request, pk=None):
+        """
+        Request: VideoRecord
+        Response: Nothing, but will send message through ws
+        """
+        channel_layer = get_channel_layer()
+
+        channel = await sync_to_async(self.get_object)()
+        channel_id = channel.channel_id
+        validated['channel_id'] = channel_id
+
+        channel_cache = ChannelCache(channel_id)
+
+        current_user = channel_cache.get_user_info(request.user.username)
+        if current_user is None:
+            logger.warning(f'Unknown user: {request.user.username}')
+            current_user = dataclasses.UserInfo(
+                id=request.user.username, name='unknown')
+
+        record_id = validated['record_id']
+
+        if channel_cache.current_projection:
+            current_video_record = await models.VideoRecord.objects.aget(
+                channel=channel,
+                record_id=channel_cache.current_projection.record_id,
+            )
+
+            if record_id == current_video_record.record_id:
+                # Playing record_id already, tell sender to follow
+                client_channel_name = channel_cache.get_channel_name(
+                    request.user.username)
+                if client_channel_name is not None:
+                    await channel_layer.send(
+                        channel_cache.get_channel_name(request.user.username),
+                        {
+                            'type': 'start.projection',
+                            'sender': current_user,
+                            'video_record': current_video_record,
+                        }
+                    )
+                return Response(status=status.HTTP_200_OK)
+
+            # Playing something but not record_id, save position from cache to db first
+            current_video_record.position = channel_cache.current_status.position
+            await current_video_record.asave()
+
+        channel_cache.current_projection = dataclasses.Projection(
+            record_id=record_id, sharer=current_user)
+
+        existed = await models.VideoRecord.objects.filter(
+            channel=channel,
+            record_id=record_id,
+        ).afirst()
+        if existed:
+            # Video has been played before
+            channel_cache.current_status = ChannelStatus(
+                position=existed.position
+            )
+
+            # Tell others in room
+            await channel_layer.group_send(
+                f'room_{channel_id}',
+                {
+                    'type': 'start.projection',
+                    'sender': current_user,
+                    'video_record': existed,
+                }
+            )
+
+            return Response(status=status.HTTP_200_OK)
+        else:
+            # Brandy-new projection!
+            channel_cache.current_status = ChannelStatus()
+
+            instance = await models.VideoRecord.objects.acreate(**validated)
+
+            # Tell others in room
+            await channel_layer.group_send(
+                f'room_{channel_id}',
+                {
+                    'type': 'start.projection',
+                    'sender': current_user,
+                    'video_record': instance,
+                }
+            )
+
+            return Response(status=status.HTTP_201_CREATED)
 
     @action(
         url_path='alist-thumbnail',
@@ -371,23 +504,97 @@ class AListAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 
-class VideoRecordRetrieveView(generics.RetrieveAPIView):
+class VideoRecordViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):
+    """
+    Call GET detail when join room;
+    Call POST list/project when project video to room
+    """
     serializer_class = serializers.VideoRecordSerializer
+    lookup_field = 'record_id'
+    lookup_url_kwarg = 'record_id'
 
-    def get_queryset(self):
+    async def get_queryset(self):
         channel_id = self.kwargs['channel_id']
         return models.VideoRecord.objects.filter(channel_id=channel_id)
 
-    def get_object(self):
-        queryset = self.get_queryset()
-        record_id = self.kwargs['record_id']
-        channel_id = self.kwargs['channel_id']
+    @action(detail=False, methods=['post'])
+    async def project(self, request, *args, **kwargs):
+        """
+        Response: VideoRecord + "position_sec" field (float)
+        """
+        serializer = self.get_serializer(data=request.data)
+        # Make sure projection is valid
+        serializer.is_valid(raise_exception=True)
 
-        try:
-            return queryset.get(record_id=record_id)
-        except models.VideoRecord.DoesNotExist:
-            obj = queryset.create(record_id=record_id, channel_id=channel_id)
-            return obj
+        channel_layer = get_channel_layer()
+
+        channel_id = self.kwargs['channel_id']
+        channel_cache = ChannelCache(channel_id)
+
+        record_id = serializer.validated_data.get('record_id')
+
+        if record_id == channel_cache.current_projection:
+            # Playing record_id already
+
+            # TODO: ws tell others to wait
+
+            current_video_record = await self.get_queryset().aget(record_id=record_id)
+            data = self.get_serializer(current_video_record).data
+            # Read status from cache, not db
+            data['position_sec'] = channel_cache.current_status.current_position.total_seconds()
+            return Response(data, status=status.HTTP_200_OK)
+
+        if channel_cache.current_projection:
+            # Playing something but not record_id, save position from cache to db first
+            current_video_record = await self.get_queryset().aget(
+                record_id=channel_cache.current_projection
+            )
+            await models.PlayStatus.objects.aupdate_or_create(
+                video_record=current_video_record,
+                defaults={
+                    'position': channel_cache.current_status.current_position,
+                }
+            )
+
+        channel_cache.current_projection = record_id
+
+        existed = await self.get_queryset().filter(record_id=record_id).afirst()
+        if existed:
+            # Video has been played before
+            channel_cache.current_status = ChannelStatus(
+                position=instance.play_status.position
+            )
+
+            # Tell others in room
+            await channel_layer.group_send(
+                f'channel_{channel_id}',
+                {
+                    'type': 'start.projection',
+                    'request': request,
+                    'video_record': existed,
+                }
+            )
+
+            data = self.get_serializer(existed).data
+            return Response(data, status=status.HTTP_200_OK)
+        else:
+            # Brandy-new projection!
+            channel_cache.current_status = ChannelStatus()
+
+            instance = await serializer.asave()
+
+            # Tell others in room
+            await channel_layer.group_send(
+                f'channel_{channel_id}',
+                {
+                    'type': 'start.projection',
+                    'request': request,
+                    'video_record': instance,
+                }
+            )
+
+            data = self.get_serializer(instance).data
+            return Response(data, status=status.HTTP_201_CREATED)
 
 
 class SubtitleCreateView(generics.CreateAPIView):
