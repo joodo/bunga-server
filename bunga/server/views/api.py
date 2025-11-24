@@ -26,7 +26,7 @@ from asgiref.sync import sync_to_async
 from server import serializers, models
 from server.utils import (network, bilibili as bili_utils, tencent, agora,
                           cached_function, auto_validated, async_action)
-from server.channel_cache import ChannelCache, ChannelStatus, UserInfo
+from server.channel_cache import ChannelCache, PlayStatus, UserInfo
 from server.models import dataclasses
 from utils.log import logger
 
@@ -346,7 +346,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
 
         channel_cache = ChannelCache(channel_id)
         user_info = UserInfo(**validated)
-        channel_cache.upsert_user(user_info)
+        channel_cache.upsert_watcher(user_info)
 
         projection = channel_cache.current_projection
         if not projection:
@@ -383,7 +383,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
 
         channel_cache = ChannelCache(channel_id)
 
-        current_user = channel_cache.get_user_info(request.user.username)
+        current_user = channel_cache.get_watcher_info(request.user.username)
         if current_user is None:
             logger.warning(f'Unknown user: {request.user.username}')
             current_user = dataclasses.UserInfo(
@@ -413,7 +413,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
                 return Response(status=status.HTTP_200_OK)
 
             # Playing something but not record_id, save position from cache to db first
-            current_video_record.position = channel_cache.current_status.position
+            current_video_record.position = channel_cache.play_status.position
             await current_video_record.asave()
 
         channel_cache.current_projection = dataclasses.Projection(
@@ -425,7 +425,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
         ).afirst()
         if existed:
             # Video has been played before
-            channel_cache.current_status = ChannelStatus(
+            channel_cache.play_status = PlayStatus(
                 position=existed.position
             )
 
@@ -442,7 +442,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_200_OK)
         else:
             # Brandy-new projection!
-            channel_cache.current_status = ChannelStatus()
+            channel_cache.play_status = PlayStatus()
 
             instance = await models.VideoRecord.objects.acreate(**validated)
 
@@ -541,7 +541,7 @@ class VideoRecordViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):
             current_video_record = await self.get_queryset().aget(record_id=record_id)
             data = self.get_serializer(current_video_record).data
             # Read status from cache, not db
-            data['position_sec'] = channel_cache.current_status.current_position.total_seconds()
+            data['position_sec'] = channel_cache.play_status.current_position.total_seconds()
             return Response(data, status=status.HTTP_200_OK)
 
         if channel_cache.current_projection:
@@ -552,7 +552,7 @@ class VideoRecordViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):
             await models.PlayStatus.objects.aupdate_or_create(
                 video_record=current_video_record,
                 defaults={
-                    'position': channel_cache.current_status.current_position,
+                    'position': channel_cache.play_status.current_position,
                 }
             )
 
@@ -561,7 +561,7 @@ class VideoRecordViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):
         existed = await self.get_queryset().filter(record_id=record_id).afirst()
         if existed:
             # Video has been played before
-            channel_cache.current_status = ChannelStatus(
+            channel_cache.play_status = PlayStatus(
                 position=instance.play_status.position
             )
 
@@ -579,7 +579,7 @@ class VideoRecordViewSet(viewsets.GenericViewSet, mixins.RetrieveModelMixin):
             return Response(data, status=status.HTTP_200_OK)
         else:
             # Brandy-new projection!
-            channel_cache.current_status = ChannelStatus()
+            channel_cache.play_status = PlayStatus()
 
             instance = await serializer.asave()
 

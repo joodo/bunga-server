@@ -1,6 +1,7 @@
 # PEP-8
 
 import json
+from datetime import timedelta
 from dataclasses import asdict
 
 from django.contrib.auth import get_user_model
@@ -10,7 +11,7 @@ from rest_framework_simplejwt.tokens import AccessToken, TokenError
 from asgiref.sync import sync_to_async
 
 from server import serializers
-from server.models import Channel, VideoRecord, dataclasses
+from server.models import Channel, VideoRecord, dataclasses as DC
 from server.channel_cache import ChannelCache
 from utils.log import logger
 
@@ -52,37 +53,39 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.room_group_name, self.channel_name
             )
 
-    async def _send_to_client(self, data):
-        event = {
-            'type': 'chat.message',
-            'data': data,
-        }
-        return await self.channel_layer.send(self.channel_name, event)
+    async def receive(self, text_data: str):
+        data = json.loads(text_data)
 
-    async def _send_error_to_client(self, e: Exception):
-        return await self._send_to_client({
-            'code': 'error',
-            'detail': str(e),
-        })
+        sender = self.channel_cache.get_watcher_info(
+            self.scope['user'].username)
+        code = data.pop('code', None)
 
-    async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        print(f'receive {text_data_json.get("code")}')
-
-        match text_data_json.get('code'):
+        match code:
+            # cases without return will forward to room
             case 'whats-on':
                 await self._deal_whats_on()
+                return
             case 'join-in':
-                await self._deal_join_in(text_data_json)
+                await self._deal_join_in(data)
+                return
             case 'start-projection':
-                await self._deal_start_projection(sharer=self._get_current_user_info(),
-                                                  record_data=text_data_json['video_record'])
+                await self._deal_start_projection(sharer=sender,
+                                                  record_data=data['video_record'])
+                return
+            case 'sync-status':
+                await self._deal_sync_status(sender, DC.WatcherStatus(data['status']))
+            case 'play-at':
+                print(data)
+                await self._deal_play_at(data['is_play'],
+                                         timedelta(microseconds=data['position']))
             case _:
-                pass
+                logger.warning('Unknown message received: %s', text_data)
+                return
+
+        await self._send_message_to_room(code, sender, data)
 
     async def _deal_whats_on(self):
         projection = self.channel_cache.current_projection
-        print(projection)
         if projection is None:
             return
         record = await VideoRecord.objects.aget(channel=self.channel,
@@ -94,14 +97,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
                                            data={'video_record': record_data})
 
     async def _deal_join_in(self, json):
-        # Join user into channel, and send current user list
-        user_info = dataclasses.UserInfo(**json['user'])
-        self.channel_cache.upsert_user(user_info)
-        user_list = [asdict(u) for u in self.channel_cache.user_list]
+        # Send current watcher list to client
+        status = self.channel_cache.watcher_status
+        watcher_list = [{'user': asdict(u),
+                         'sync_status': status.get(u.id, DC.WatcherStatus.BUFFERING).value}
+                        for u in self.channel_cache.watcher_list]
         await self._send_message_to_client(code='here-are',
-                                           sender=dataclasses.UserInfo.server,
-                                           data={'users': user_list},
+                                           sender=DC.UserInfo.server,
+                                           data={'watchers': watcher_list},
                                            )
+
+        # Join user into channel, tell others
+        user_info = DC.UserInfo(**json['user'])
+        self.channel_cache.upsert_watcher(user_info)
+        await self._send_message_to_room(code='aloha', sender=user_info)
 
         # Deal with sharing if has, and send
         sharing_record_data = json.get('my_share')
@@ -118,7 +127,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Share video with others
             await self._deal_start_projection(user_info, sharing_record_data)
 
-    async def _deal_start_projection(self, sharer: dataclasses.UserInfo, record_data):
+    async def _deal_start_projection(self, sharer: DC.UserInfo, record_data):
         record_id = record_data['record_id']
         if self.channel_cache.current_projection:
             # If playing something...
@@ -134,11 +143,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 return
 
             # Playing something but not record_id, save position from cache to db first
-            current_video_record.position = self.channel_cache.current_status.position
+            current_video_record.position = self.channel_cache.play_status.position
             await current_video_record.asave()
 
-        self.channel_cache.current_projection = dataclasses.Projection(
+        self.channel_cache.current_projection = DC.Projection(
             record_id=record_id, sharer=sharer)
+        self.channel_cache.reset_all_watchers_to_buffering()
 
         existed = await VideoRecord.objects.select_related('subtitle').filter(
             channel=self.channel,
@@ -146,7 +156,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         ).afirst()
         if existed:
             # Video has been played before
-            self.channel_cache.current_status = dataclasses.ChannelStatus(
+            self.channel_cache.play_status = DC.PlayStatus(
                 position=existed.position
             )
 
@@ -157,7 +167,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                                              data={'video_record': record_data})
         else:
             # Brandy-new projection!
-            self.channel_cache.current_status = dataclasses.ChannelStatus()
+            self.channel_cache.play_status = DC.PlayStatus()
             instance = await VideoRecord.objects.acreate(channel=self.channel,
                                                          **record_data)
             instance = await VideoRecord.objects.select_related('subtitle').aget(pk=instance.pk)
@@ -168,80 +178,52 @@ class ChatConsumer(AsyncWebsocketConsumer):
                                              sender=sharer,
                                              data={'video_record': record_data})
 
+    async def _deal_sync_status(self, watcher: DC.UserInfo | None, status: DC.WatcherStatus):
+        if watcher is None:
+            return
+        self.channel_cache.set_watcher_status(watcher.id, status)
+        await self._play_if_should()
+
+    async def _deal_play_at(self, isPlay: bool, position: timedelta):
+        self.channel_cache.play_status = DC.PlayStatus(position=position,
+                                                       playing=False)
+        if isPlay:
+            self.channel_cache.set_waiting_to_start()
+            await self._play_if_should()
+
+    async def _play_if_should(self) -> None:
+        if self.channel_cache.set_status_to_play():
+            position = self.channel_cache.play_status.position
+            await self._send_message_to_room(code='play-at',
+                                             sender=DC.UserInfo.server,
+                                             data={'is_play': True,
+                                                   'position': position.total_seconds()*1000_000})
+
     async def _get_current_video_record(self) -> VideoRecord:
         return await VideoRecord.objects.select_related('subtitle').aget(
             channel=self.channel,
             record_id=self.channel_cache.current_projection.record_id,
         )
 
-    def _get_current_user_info(self) -> dataclasses.UserInfo:
-        return self.channel_cache.get_user_info(self.scope['user'].username)
-
-    async def chat_message(self, event):
-        await self.send(text_data=json.dumps(event['message']))
-
-    async def _send_message_to_client(self, code: str, sender: dataclasses.UserInfo,  data: dict):
-        await self.send(text_data=json.dumps(dict(
+    async def _send_message_to_client(self, code: str, sender: DC.UserInfo,  data: dict | None = None):
+        return await self.send(text_data=json.dumps(dict(
             code=code,
             sender=asdict(sender),
-            **data,
+            **(data or {}),
         )))
 
-    async def _send_message_to_room(self, code: str, sender: dataclasses.UserInfo, data: dict):
+    async def _send_message_to_room(self, code: str, sender: DC.UserInfo | None, data: dict | None = None):
+        if sender is None:
+            return
         event = {
             'type': 'chat.message',
             'message': dict(
                 code=code,
                 sender=asdict(sender),
-                **data,
+                **(data or {}),
             ),
         }
         return await self.channel_layer.group_send(self.room_group_name, event)
 
-    async def aloha(self, event):
-        """
-        event keys:
-            - sender: str
-            - info: UserInfo
-        """
-        user_info = event['info']
-        await self.send(text_data=json.dumps({
-            'code': 'aloha',
-            'sender': event['sender'],
-            'data': asdict(user_info),
-        }))
-
-    async def start_projection(self, event):
-        """
-        event keys:
-            - sender: str
-            - video_record: VideoRecord
-        """
-        record = event['video_record']
-        record_data = await sync_to_async(
-            lambda: serializers.VideoRecordSerializer(record).data
-        )()
-        data = {
-            'code': 'start-projection',
-            'sender': asdict(event['sender']),
-            'video_record': record_data,
-        }
-        logger.info(f'send projection: {data}')
-        await self.send(text_data=json.dumps(data))
-
-    async def seek_and_pause(self, event):
-        """
-        event keys:
-            - position: deltatime
-            - reason:
-        """
-        await self.send(text_data=json.dumps({
-            'code': 'seek-and-pause',
-            'position_sec': event['position'],
-        }))
-
-    @sync_to_async
-    def _save_video_record(self, data):
-        serializer = serializers.VideoRecordSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        return serializer.save()
+    async def chat_message(self, event):
+        await self.send(text_data=json.dumps(event['message']))

@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 
-class PlayStatus(Enum):
-    PAUSE = auto()
-    PLAY = auto()
+class WatcherStatus(Enum):
+    BUFFERING = 'buffering'
+    READY = 'ready'
+    DETACHED = 'detached'
 
 
 @dataclass
@@ -27,13 +28,13 @@ class Projection:
 
 
 @dataclass
-class ChannelStatus:
+class PlayStatus:
     update_at: datetime = datetime.now()
     position: timedelta = timedelta(0)
-    play_status: PlayStatus = PlayStatus.PAUSE
+    playing: bool = False
 
     @property
     def current_position(self) -> timedelta:
-        if (self.play_status != PlayStatus.PLAY):
+        if (not self.playing):
             return self.position
         return self.position + (datetime.now() - self.update_at)
