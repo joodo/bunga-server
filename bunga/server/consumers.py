@@ -1,5 +1,6 @@
 # PEP-8
 
+import copy
 import json
 from datetime import timedelta
 from dataclasses import asdict
@@ -9,7 +10,6 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache as Cache
 from channels.generic.websocket import AsyncWebsocketConsumer
 from rest_framework_simplejwt.tokens import AccessToken, TokenError
-from asgiref.sync import sync_to_async
 
 from server import serializers
 from server.models import Channel, VideoRecord, dataclasses as DC
@@ -186,7 +186,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await current_video_record.asave()
 
         self.channel_cache.current_projection = DC.Projection(
-            record_id=record_id, sharer=sharer
+            record_id=record_id, sharer=copy.deepcopy(sharer)
         )
         self.channel_cache.reset_all_watchers_to_buffering()
 
