@@ -168,3 +168,6 @@ cython_debug/
 
 # Static files
 bunga/staticfiles/
+
+# Redis database files
+dump.rdb
