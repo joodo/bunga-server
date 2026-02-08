@@ -26,10 +26,10 @@ class AListAccountForm(ModelForm):
 
     class Meta:
         model = AListAccount
-        fields = ['username', 'password']
+        fields = ["username", "password"]
 
 
 class BilibiliAccountForm(ModelForm):
     class Meta:
         model = BilibiliAccount
-        fields = ['sess', 'bili_jct', 'refresh_token']
+        fields = ["sess", "bili_jct", "refresh_token"]

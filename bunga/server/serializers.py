@@ -17,13 +17,14 @@ class DurationSecondsField(serializers.Field):
         except (ValueError, TypeError):
             raise serializers.ValidationError("Must be a number (seconds)")
         from datetime import timedelta
+
         return timedelta(seconds=seconds)
 
 
 class SiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Site
-        fields = '__all__'
+        fields = "__all__"
 
 
 class AlistHostSerializer(serializers.ModelSerializer):
@@ -31,7 +32,7 @@ class AlistHostSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.AListHost
-        fields = '__all__'
+        fields = "__all__"
 
 
 class VoiceKeySerializer(serializers.ModelSerializer):
@@ -39,7 +40,7 @@ class VoiceKeySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.VoiceKey
-        fields = '__all__'
+        fields = "__all__"
 
 
 class IMKeySerializer(serializers.ModelSerializer):
@@ -47,17 +48,20 @@ class IMKeySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.IMKey
-        fields = '__all__'
+        fields = "__all__"
 
 
 class ChannelSerializer(serializers.ModelSerializer):
-    channel_id = serializers.CharField(style={'input_type': 'hidden',
-                                              'hide_label': True,
-                                              })
+    channel_id = serializers.CharField(
+        style={
+            "input_type": "hidden",
+            "hide_label": True,
+        }
+    )
 
     class Meta:
         model = models.Channel
-        fields = '__all__'
+        fields = "__all__"
 
 
 class BilibiliAccountSerializer(serializers.ModelSerializer):
@@ -65,7 +69,7 @@ class BilibiliAccountSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.BilibiliAccount
-        fields = '__all__'
+        fields = "__all__"
 
 
 class AListAccountSerializer(serializers.ModelSerializer):
@@ -73,23 +77,22 @@ class AListAccountSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.AListAccount
-        fields = '__all__'
+        fields = "__all__"
 
 
 class SubtitleSerializer(serializers.ModelSerializer):
-    uploader = serializers.CharField(
-        source='uploader.username', read_only=True)
+    uploader = serializers.CharField(source="uploader.username", read_only=True)
 
     class Meta:
         model = models.Subtitle
-        read_only_fields = ['record', 'uploader', 'name']
-        fields = '__all__'
+        read_only_fields = ["record", "uploader", "name"]
+        fields = "__all__"
 
 
 class VideoRecordSimpleSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.VideoRecord
-        fields = ('record_id', 'title', 'thumb_url', 'source', 'path')
+        fields = ("record_id", "title", "thumb_url", "source", "path")
 
 
 class VideoRecordSerializer(serializers.ModelSerializer):
@@ -98,15 +101,17 @@ class VideoRecordSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = models.VideoRecord
-        fields = ('record_id', 'title', 'thumb_url', 'source', 'path',
-                  'subtitle', 'position')
+        fields = (
+            "record_id",
+            "title",
+            "thumb_url",
+            "source",
+            "path",
+            "subtitle",
+            "position",
+        )
 
 
 class RegisterPayloadSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150, required=True)
     password = serializers.CharField(required=True)
-
-
-class AlohaPayloadSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=200, required=True)
-    color_hue = serializers.IntegerField(required=True)

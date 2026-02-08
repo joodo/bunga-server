@@ -17,37 +17,39 @@ from .network import user_agent, parse_set_cookie
 def keep_sess_fresh(instance: BilibiliAccount) -> bool:
     # check fresh
     response = requests.get(
-        'https://passport.bilibili.com/x/passport-login/web/cookie/info',
-        cookies={'SESSDATA': instance.sess},
-        headers={'User-Agent': user_agent},
+        "https://passport.bilibili.com/x/passport-login/web/cookie/info",
+        cookies={"SESSDATA": instance.sess},
+        headers={"User-Agent": user_agent},
     )
     if not response.ok:
         return False
 
     data = response.json()
-    if data['code'] != 0:
+    if data["code"] != 0:
         return False
-    if not data['data']['refresh']:
+    if not data["data"]["refresh"]:
         return True
 
     # correspond_path
     ts = round(time.time() * 1000)
-    key = RSA.importKey('''\
+    key = RSA.importKey(
+        """\
 -----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0Eg
 Uc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71
 nzPjfdTcqMz7djHum0qSZA0AyCBDABUqCrfNgCiJ00Ra7GmRj+YCK1NJEuewlb40
 JNrRuoEUXpabUzGB8QIDAQAB
------END PUBLIC KEY-----''')
+-----END PUBLIC KEY-----"""
+    )
     cipher = PKCS1_OAEP.new(key, SHA256)
-    encrypted = cipher.encrypt(f'refresh_{ts}'.encode())
+    encrypted = cipher.encrypt(f"refresh_{ts}".encode())
     correspond_path = binascii.b2a_hex(encrypted).decode()
 
     # csrf
     response = requests.get(
-        f'https://www.bilibili.com/correspond/1/{correspond_path}',
-        cookies={'SESSDATA': instance.sess},
-        headers={'User-Agent': user_agent},
+        f"https://www.bilibili.com/correspond/1/{correspond_path}",
+        cookies={"SESSDATA": instance.sess},
+        headers={"User-Agent": user_agent},
     )
     if not response.ok:
         return False
@@ -57,41 +59,101 @@ JNrRuoEUXpabUzGB8QIDAQAB
 
     # new cookies
     response = requests.post(
-        'https://passport.bilibili.com/x/passport-login/web/cookie/refresh',
+        "https://passport.bilibili.com/x/passport-login/web/cookie/refresh",
         {
-            'csrf': instance.bili_jct,
-            'refresh_csrf': csrf,
-            'source': 'main_web',
-            'refresh_token': instance.refresh_token,
+            "csrf": instance.bili_jct,
+            "refresh_csrf": csrf,
+            "source": "main_web",
+            "refresh_token": instance.refresh_token,
         },
-        cookies={'SESSDATA': instance.sess},
-        headers={'User-Agent': user_agent},
+        cookies={"SESSDATA": instance.sess},
+        headers={"User-Agent": user_agent},
     )
     if not response.ok:
         return False
 
     data = response.json()
-    if data['code'] != 0:
+    if data["code"] != 0:
         return False
 
-    cookies = parse_set_cookie(response.headers['set-cookie'])
-    instance.sess = cookies['SESSDATA']
-    instance.bili_jct = cookies['bili_jct']
-    instance.refresh_token = data['data']['refresh_token']
+    cookies = parse_set_cookie(response.headers["set-cookie"])
+    instance.sess = cookies["SESSDATA"]
+    instance.bili_jct = cookies["bili_jct"]
+    instance.refresh_token = data["data"]["refresh_token"]
     instance.save()
     return True
 
 
 # See https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/misc/sign/wbi.md
 _mixinKeyEncTab = [
-    46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49,
-    33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40,
-    61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11,
-    36, 20, 34, 44, 52
+    46,
+    47,
+    18,
+    2,
+    53,
+    8,
+    23,
+    32,
+    15,
+    50,
+    10,
+    31,
+    58,
+    3,
+    45,
+    35,
+    27,
+    43,
+    5,
+    49,
+    33,
+    9,
+    42,
+    19,
+    29,
+    28,
+    14,
+    39,
+    12,
+    38,
+    41,
+    13,
+    37,
+    48,
+    7,
+    16,
+    24,
+    55,
+    40,
+    61,
+    26,
+    17,
+    0,
+    1,
+    60,
+    51,
+    30,
+    4,
+    22,
+    25,
+    54,
+    21,
+    56,
+    59,
+    6,
+    63,
+    57,
+    62,
+    11,
+    36,
+    20,
+    34,
+    44,
+    52,
 ]
 
 
 def get_mixin_key(img_key: str, sub_key: str) -> str:
     print(123, img_key, sub_key)
-    orig = img_key+sub_key
-    return reduce(lambda s, i: s + orig[i], _mixinKeyEncTab, '')[:32]
+    orig = img_key + sub_key
+    return reduce(lambda s, i: s + orig[i], _mixinKeyEncTab, "")[:32]
