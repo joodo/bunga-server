@@ -324,7 +324,7 @@ class ChannelService:
             case ChannelStatus.SEEKING:
                 self.channel_cache.set_position(position)
                 SeekCountdownManager.reset(self.channel_id, self._evaluate_to_play())
-        await self._broadcast_play_status()
+        await self._broadcast_play_status(excludes=[sender.id])
 
     async def finish_playing(self) -> None:
         # Play finished, back to position 0, and pause
@@ -452,11 +452,12 @@ class ChannelService:
         room_group_name = f"room_{self.channel_id}"
         return await layer.group_send(room_group_name, event)
 
-    async def _broadcast_play_status(self) -> None:
+    async def _broadcast_play_status(self, *, excludes: list[str] = []) -> None:
         play_status = self.channel_cache.play_status
         await self._broadcast_message(
             code="play-at",
             data=PlayAtSchema.from_play_status(play_status),
+            excludes=excludes,
         )
 
     async def _broadcast_message(
@@ -464,12 +465,15 @@ class ChannelService:
         code: str,
         sender: UserInfo = UserInfo.server,
         data: any = None,
+        *,
+        excludes: list[str] = [],
     ) -> None:
         event = {
             "type": "send.event.receiver",
             "code": code,
             "sender": asdict(sender),
             "data": asdict(data) if is_dataclass(data) else None,
+            "excludes": excludes,
         }
         layer = get_channel_layer()
         room_group_name = f"room_{self.channel_id}"

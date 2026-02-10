@@ -81,8 +81,16 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             )
 
     async def _send_message_to_client(
-        self, code: str, sender: dict, data: dict | None = None, **kwargs
+        self,
+        code: str,
+        sender: dict,
+        data: dict | None = None,
+        excludes: list[str] = [],
+        **kwargs,
     ):
+        if self.user_id in excludes:
+            return
+
         logger.info(
             "Sending message to client %s: code=%s, sender=%s, data=%s",
             self.user_id,
