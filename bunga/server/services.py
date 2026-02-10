@@ -52,6 +52,7 @@ class ChatService:
             "set-playback": self._handle_set_playback,
             "seek": self._handle_seek,
             "call": self._handle_call,
+            "play-finished": self._handle_play_finished,
         }
         handler = METHOD_MAP.get(code)
         if handler is None:
@@ -216,6 +217,10 @@ class ChatService:
 
         return []
 
+    async def _handle_play_finished(self, *_, **__) -> OutboundCommandList:
+        await self.channel_service.finish_playing()
+        return []
+
 
 class ChannelService:
     def __init__(self, channel_id: str):
@@ -226,7 +231,7 @@ class ChannelService:
         self.channel_cache.upsert_watcher(user)
         await self._broadcast_message(code="aloha", sender=user)
 
-        await self._status_translate(ChannelStatus.PAUSED)
+        self._status_translate(ChannelStatus.PAUSED)
         await self._broadcast_play_status()
 
     async def leave_user(self, user_id: str) -> None:
@@ -240,7 +245,7 @@ class ChannelService:
             and self.channel_cache.is_all_watchers_ready
         ):
             # If leaving user is the last buffering one, start playback
-            await self._status_translate(ChannelStatus.PLAYING)
+            self._status_translate(ChannelStatus.PLAYING)
 
     async def apply_new_projection(
         self, sharer: UserInfo, data: StartProjectionSchema
@@ -283,11 +288,11 @@ class ChannelService:
         match self.channel_cache.channel_status:
             case ChannelStatus.PLAYING:
                 if is_buffering:
-                    await self._status_translate(ChannelStatus.WAITING)
+                    self._status_translate(ChannelStatus.WAITING)
                     await self._broadcast_play_status()
             case ChannelStatus.WAITING:
                 if self.channel_cache.is_all_watchers_ready:
-                    await self._status_translate(ChannelStatus.PLAYING)
+                    self._status_translate(ChannelStatus.PLAYING)
                     await self._broadcast_play_status()
             case ChannelStatus.SEEKING:
                 if self.channel_cache.is_all_watchers_ready:
@@ -298,7 +303,7 @@ class ChannelService:
     async def set_channel_playback(self, sender: UserInfo, is_play: bool) -> None:
         if not is_play:
             # PAUSE
-            await self._status_translate(ChannelStatus.PAUSED)
+            self._status_translate(ChannelStatus.PAUSED)
             await self._broadcast_play_status()
         else:
             # PLAY
@@ -315,11 +320,16 @@ class ChannelService:
             case ChannelStatus.PLAYING | ChannelStatus.WAITING:
                 self.channel_cache.set_position(position)
                 SeekCountdownManager.reset(self.channel_id, self._evaluate_to_play())
-                await self._status_translate(ChannelStatus.SEEKING)
+                self._status_translate(ChannelStatus.SEEKING)
             case ChannelStatus.SEEKING:
                 self.channel_cache.set_position(position)
                 SeekCountdownManager.reset(self.channel_id, self._evaluate_to_play())
         await self._broadcast_play_status()
+
+    async def finish_playing(self) -> None:
+        # Play finished, back to position 0, and pause
+        self.channel_cache.play_status = PlayStatus()
+        self._status_translate(ChannelStatus.PAUSED)
 
     # Call Management
     async def on_call(self, caller_id: str) -> None:
@@ -367,12 +377,12 @@ class ChannelService:
             if self.channel_cache.is_all_watchers_ready
             else ChannelStatus.WAITING
         )
-        await self._status_translate(target_status)
+        self._status_translate(target_status)
         await self._broadcast_play_status()
 
     # Channel Status Management
 
-    async def _status_translate(self, target_status: ChannelStatus) -> None:
+    def _status_translate(self, target_status: ChannelStatus) -> None:
         RULES = {
             # * -> PAUSED
             (ChannelStatus.PLAYING, ChannelStatus.PAUSED): self._on_pause_playback,

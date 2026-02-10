@@ -105,4 +105,5 @@ PROTOCOL_MAP = {
     "seek": SeekSchema,
     "bye": None,
     "call": CallSchema,
+    "play-finished": None,
 }
