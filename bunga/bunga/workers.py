@@ -11,7 +11,7 @@ from utils.log import logger
 class PresenceWorker(AsyncConsumer):
 
     async def delayed_offline(self, event: dict[str, any]) -> None:
-        await asyncio.sleep(3)
+        await asyncio.sleep(5)
 
         channel_id, user_id = event["channel_id"], event["user_id"]
         channel_cache = ChannelCache(channel_id)
