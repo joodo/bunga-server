@@ -64,6 +64,13 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                     "channel_id": channel.channel_id,
                 },
             )
+            await self.channel_layer.send(
+                "presence_worker",
+                {
+                    "type": "delayed_clean_channel",
+                    "channel_id": channel.channel_id,
+                },
+            )
 
     async def receive_json(self, data: dict):
         logger.info("Received data from %s: %s", self.user_id, data)
