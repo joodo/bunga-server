@@ -2,11 +2,28 @@ $(document).ready(function () {
   setDownloadButton();
 });
 
-function copyToClipboard() {
-  const input = document.querySelector(".form-control");
-  input.select();
-  input.setSelectionRange(0, 99999); // For mobile devices
-  navigator.clipboard.writeText(input.value);
+async function copyToClipboard() {
+  async function doCopy(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return await navigator.clipboard
+        .writeText(text)
+        .then(() => true)
+        .catch(() => false);
+    }
+
+    const $temp = $("<textarea>").val(text).appendTo("body").select();
+    const success = document.execCommand("copy");
+    $temp.remove();
+    return success;
+  }
+
+  const textToCopy = $("#server-address").val();
+  const isOk = await doCopy(textToCopy);
+  if (isOk) {
+    alert("复制成功！");
+  } else {
+    alert("复制失败，请手动选择复制。");
+  }
 }
 
 function setDownloadButton() {
