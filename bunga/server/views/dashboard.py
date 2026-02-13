@@ -52,6 +52,9 @@ def __render_dashboard(request, template_name, data):
     template_data = {
         "site_name": models.Site.get_solo().name,
         "alert": request.session.pop("alert", default=None),
+        "channel_ids": list(
+            models.Channel.objects.values_list("channel_id", flat=True)
+        ),
     }
     return render(request, template_name, template_data | data)
 

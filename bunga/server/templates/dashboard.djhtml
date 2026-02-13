@@ -51,8 +51,39 @@
                             <li class="nav-item">
                                 <a class="nav-link {% active 'site' %}" href="{% url 'site' %}">站点</a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link {% active 'channels' %}" href="{% url 'channels' %}">频道</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link {% active 'channels' %} dropdown-toggle"
+                                   href="#"
+                                   role="button"
+                                   data-bs-toggle="dropdown"
+                                   aria-expanded="false">
+                                    {% if channel_id %}
+                                        频道 “{{ channel_id }}”
+                                    {% else %}
+                                        所有频道
+                                    {% endif %}
+                                &nbsp;&nbsp;</a>
+                                <ul class="dropdown-menu">
+                                    {% for channel_id in channel_ids %}
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'channel-detail' channel_id %}">{{ channel_id }}</a>
+                                        </li>
+                                    {% endfor %}
+                                    <li>
+                                        <hr class="dropdown-divider">
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'channels' %}">所有频道</a>
+                                    </li>
+                                </ul>
+                                {% if channel_id %}
+                                    <ul class="list-unstyled ms-3">
+                                        {% url 'channel-detail' channel_id as the_url %}
+                                        <li class="nav-item">
+                                            <a class="nav-link {% active the_url %}" href="{% url 'channels' %}">基本信息</a>
+                                        </li>
+                                    </ul>
+                                {% endif %}
                             </li>
                             <hr />
                             <li class="nav-item">
