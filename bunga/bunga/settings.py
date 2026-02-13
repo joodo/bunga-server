@@ -1,6 +1,6 @@
 # PEP-8
 
-from datetime import timedelta
+from datetime import time, timedelta
 
 from pathlib import Path
 
@@ -131,6 +131,7 @@ LOGGING = {
             "backupCount": 7,
             "formatter": "standard",
             "encoding": "utf-8",
+            "atTime": time(4, 0, 0),
         },
     },
     "loggers": {
