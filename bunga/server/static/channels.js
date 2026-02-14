@@ -31,7 +31,7 @@ window.operateEvents = {
       .unbind()
       .click(async function () {
         const csrftoken = document.querySelector(
-          "[name=csrfmiddlewaretoken]"
+          "[name=csrfmiddlewaretoken]",
         ).value;
         await fetch(window.URLS["channel:rename"], {
           method: "POST",
@@ -60,7 +60,7 @@ window.operateEvents = {
       .find("#dismissing-channel-info")
       .text(`[${row.id}] ${row.name}`);
     const url = `${window.URLS["channel:dismiss"]}?id=${encodeURIComponent(
-      row.id
+      row.id,
     )}`;
     modalElement
       .find(".btn-confirm")
@@ -81,7 +81,7 @@ window.operateEvents = {
 
 window.randomId = () => {
   document.getElementById("new-channel-id").value = Math.floor(
-    Math.random() * 900000 + 100000
+    Math.random() * 900000 + 100000,
   );
 };
 window.onCreateChannel = async (event) => {
@@ -135,9 +135,6 @@ window.showShareModal = function ({ download, api } = {}) {
   $("#share-model").modal("show");
 };
 
-window.copyToClipboard = function (inputId) {
-  const input = document.getElementById(inputId);
-  input.select();
-  input.setSelectionRange(0, 99999); // For mobile devices
-  navigator.clipboard.writeText(input.value);
-};
+import { copyToClipboard } from "./utils.js";
+
+window.copyToClipboard = copyToClipboard;
