@@ -781,3 +781,63 @@ def _convert_to_http_response(
 def _parse_host(host):
     parsed = urlparse(host)
     return f"{parsed.scheme}://{parsed.netloc}"
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def monitor_logs(request):
+    """获取最近的日志内容"""
+    from django.conf import settings
+
+    log_dir = settings.LOG_DIR
+    log_file = log_dir / "django.log"
+
+    logs = []
+    if log_file.exists():
+        with open(log_file, "r", encoding="utf-8") as f:
+            # 读取最后 100 行
+            lines = f.readlines()
+            logs = lines[-100:] if len(lines) > 100 else lines
+
+    return Response({"logs": logs})
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminUser])
+def monitor_cache(request, channel_id: str):
+    """获取单个频道的缓存信息"""
+    try:
+        channel = models.Channel.objects.get(channel_id=channel_id)
+    except models.Channel.DoesNotExist:
+        return Response({"error": "channel not found"}, status=404)
+
+    try:
+        channel_cache = ChannelCache(channel_id)
+        cache_info = {
+            "channel_id": channel_id,
+            "channel_status": str(channel_cache.channel_status.name),
+            "current_projection": None,
+            "watcher_list": [asdict(w) for w in channel_cache.watcher_list],
+            "watcher_count": len(channel_cache.watcher_list),
+            "ready_watchers": list(channel_cache.ready_watchers),
+            "buffering_watchers": list(channel_cache.buffering_watchers),
+            "has_pending_call": channel_cache.has_pending_call,
+            "play_status": {
+                "playing": channel_cache.play_status.playing,
+                "position_seconds": channel_cache.play_status.position.total_seconds(),
+            } if channel_cache.play_status else None,
+        }
+
+        if channel_cache.current_projection:
+            proj = channel_cache.current_projection
+            cache_info["current_projection"] = {
+                "record_id": proj.record.record_id,
+                "title": proj.record.title,
+                "source": proj.record.source,
+                "sharer_id": proj.sharer.id,
+                "sharer_name": proj.sharer.name,
+            }
+
+        return Response(cache_info)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)

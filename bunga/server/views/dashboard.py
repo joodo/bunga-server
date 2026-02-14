@@ -48,6 +48,17 @@ def channel_detail(request, channel_id):
     )
 
 
+@login_required
+def monitor(request, channel_id):
+    return __render_dashboard(
+        request,
+        "monitor.djhtml",
+        {
+            "channel_id": channel_id,
+        },
+    )
+
+
 def __render_dashboard(request, template_name, data):
     template_data = {
         "site_name": models.Site.get_solo().name,

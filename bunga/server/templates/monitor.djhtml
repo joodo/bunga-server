@@ -1,0 +1,104 @@
+{% extends "dashboard.djhtml" %}
+{% block title %}
+    监控
+{% endblock title %}
+{% block content %}
+    {% load django_bootstrap5 %}
+    <style>
+        #logs-container {
+            background-color: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+    </style>
+    <div class="card mb-3">
+        <div class="card-header">
+            <div class="row">
+                <div class="col">
+                    最后刷新时间：<strong id="last-refresh-time">-</strong>
+                </div>
+                <div class="col text-end">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="onRefresh()">刷新</button>
+                    <button type="button"
+                            class="btn btn-sm btn-secondary"
+                            onclick="downloadSnapshot()">下载快照</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">
+            <div class="row">
+                <div class="col">缓存信息</div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h6>状态信息</h6>
+                    <table class="table table-sm">
+                        <tbody id="status-info-tbody">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>播放状态</h6>
+                    <table class="table table-sm">
+                        <tbody id="play-status-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="mb-3">
+                <h6>当前投影</h6>
+                <table class="table table-sm" id="projection-table">
+                    <tbody id="projection-tbody">
+                    </tbody>
+                </table>
+                <p id="no-projection" class="text-muted">暂无投影</p>
+            </div>
+            <div>
+                <h6>观看者列表</h6>
+                <table class="table table-sm table-striped" id="watcher-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>名称</th>
+                            <th>颜色</th>
+                            <th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="watcher-tbody">
+                    </tbody>
+                </table>
+                <p id="no-watchers" class="text-muted">暂无观看者</p>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-header">
+            <div class="row">
+                <div class="col">日志</div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="logs-container"></div>
+        </div>
+    </div>
+    <!-- Scripts -->
+    {% load static %}
+    <script type="module">
+    window.URLS = {
+        "monitor:logs": "{% url 'api:monitor-logs' %}",
+        "monitor:cache": "{% url 'api:monitor-cache' channel_id %}",
+    };
+    </script>
+    <script src="{% static 'monitor.js' %}" type="module"></script>
+{% endblock content %}

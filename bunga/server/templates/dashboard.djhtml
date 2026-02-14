@@ -78,9 +78,13 @@
                                 </ul>
                                 {% if channel_id %}
                                     <ul class="list-unstyled ms-3">
-                                        {% url 'channel-detail' channel_id as the_url %}
                                         <li class="nav-item">
-                                            <a class="nav-link {% active the_url %}" href="{% url 'channels' %}">基本信息</a>
+                                            <a class="nav-link {% active 'channel-detail' channel_id %}"
+                                               href="{% url 'channel-detail' channel_id %}">基本信息</a>
+                                        </li>
+                                        <li class="nav-item">
+                                            <a class="nav-link {% active 'channel-monitor' channel_id %}"
+                                               href="{% url 'channel-monitor' channel_id %}">监控</a>
                                         </li>
                                     </ul>
                                 {% endif %}
