@@ -129,3 +129,9 @@ class ClientLog(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+
+
+@receiver(models.signals.post_delete, sender=ClientLog)
+def delete_client_log_file(sender, instance, **kwargs):
+    if instance.file:
+        instance.file.delete(save=False)
