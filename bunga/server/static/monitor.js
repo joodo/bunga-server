@@ -174,3 +174,35 @@ window.onRefreshLogs = async function () {
 document.addEventListener("DOMContentLoaded", function () {
   onRefresh();
 });
+
+window.onResetChannel = async function () {
+  const confirmed = confirm(
+    "确定要重置频道状态吗？这将清除所有缓存信息、观看者列表和投影。",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const response = await fetch(URLS["monitor:reset"], {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken":
+          document.querySelector("[name=csrfmiddlewaretoken]")?.value || "",
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      alert("频道状态已成功重置");
+      onRefresh();
+    } else {
+      const error = await response.json();
+      alert("重置失败: " + (error.error || "未知错误"));
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    alert("重置失败: " + error.message);
+  }
+};

@@ -272,7 +272,7 @@ class ChannelCache:
         return self.redis.scard(self.keys.call_pending_ids.raw) > 0
 
     # Utils
-    def clean(self) -> None:
+    def reset(self) -> None:
         self.clean_projection()
         self.redis.delete(self.keys.clients.raw)
         self.redis.delete(self.keys.watchers.raw)

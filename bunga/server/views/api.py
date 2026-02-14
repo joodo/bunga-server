@@ -857,3 +857,20 @@ def monitor_cache(request, channel_id: str):
         return Response(cache_info)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def monitor_reset_channel(request, channel_id: str):
+    """重置频道状态"""
+    try:
+        channel = models.Channel.objects.get(channel_id=channel_id)
+    except models.Channel.DoesNotExist:
+        return Response({"error": "channel not found"}, status=404)
+
+    try:
+        channel_cache = ChannelCache(channel_id)
+        channel_cache.reset()
+        return Response({"message": "频道状态已重置"}, status=200)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)

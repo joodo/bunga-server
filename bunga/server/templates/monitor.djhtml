@@ -18,6 +18,7 @@
             overflow-wrap: anywhere;
         }
     </style>
+    {% csrf_token %}
     <div class="card mb-3">
         <div class="card-header">
             <div class="row">
@@ -37,6 +38,11 @@
         <div class="card-header">
             <div class="row">
                 <div class="col">缓存信息</div>
+                <div class="col text-end">
+                    <button type="button"
+                            class="btn btn-sm btn-warning"
+                            onclick="onResetChannel()">重置频道状态</button>
+                </div>
             </div>
         </div>
         <div class="card-body">
@@ -98,6 +104,7 @@
     window.URLS = {
         "monitor:logs": "{% url 'api:monitor-logs' %}",
         "monitor:cache": "{% url 'api:monitor-cache' channel_id %}",
+        "monitor:reset": "{% url 'api:monitor-reset' channel_id %}",
     };
     </script>
     <script src="{% static 'monitor.js' %}" type="module"></script>

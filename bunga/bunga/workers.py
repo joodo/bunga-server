@@ -26,4 +26,4 @@ class PresenceWorker(AsyncConsumer):
         channel_cache = ChannelCache(channel_id)
         if not channel_cache.has_client:
             logger.info(f"No client left, clean channel {channel_id}")
-            channel_cache.clean()
+            channel_cache.reset()
