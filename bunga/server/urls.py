@@ -21,7 +21,10 @@ dashboard_patterns = [
     path("site/", dashboard.site, name="site"),
     path("channels/", dashboard.channel_list, name="channels"),
     path("channels/<str:channel_id>/", dashboard.channel_detail, name="channel-detail"),
-    path("channels/<str:channel_id>/monitor/", dashboard.monitor, name="channel-monitor"),
+    path(
+        "channels/<str:channel_id>/monitor/", dashboard.monitor, name="channel-monitor"
+    ),
+    path("client-logs/", dashboard.client_logs, name="client-logs"),
 ]
 
 api_patterns = [
@@ -59,6 +62,7 @@ view_set_router.register(
     api.VideoRecordViewSet,
     basename="video-record",
 )
+view_set_router.register(r"client-logs", api.ClientLogViewSet, basename="client-log")
 api_patterns += view_set_router.urls
 
 urlpatterns = [

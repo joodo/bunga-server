@@ -89,6 +89,10 @@
                                     </ul>
                                 {% endif %}
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% active 'client-logs' %}"
+                                   href="{% url 'client-logs' %}">客户端日志</a>
+                            </li>
                             <hr />
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'admin:index' %}">Django Admin</a>

@@ -1,0 +1,73 @@
+{% extends "dashboard.djhtml" %}
+{% load static %}
+{% block title %}
+    客户端日志
+{% endblock title %}
+{% block content %}
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <table id="logsTable"
+                   class="table table-striped table-hover"
+                   data-toggle="table"
+                   data-url="/api/client-logs/"
+                   data-pagination="true"
+                   data-page-size="20"
+                   data-page-list="[20, 50, 100]"
+                   data-search="true"
+                   data-sortable="true">
+                <thead>
+                    <tr>
+                        <th data-field="id" data-sortable="true">ID</th>
+                        <th data-field="channel_id" data-sortable="true">频道</th>
+                        <th data-field="uploader" data-sortable="true">上传者</th>
+                        <th data-field="created_at" data-sortable="true">上传时间</th>
+                        <th data-field="id" data-formatter="downloadFormatter">操作</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+    <script>
+function fileFormatter(value, row) {
+    if (row.file) {
+        const filename = row.file.split('/').pop();
+        return filename;
+    }
+    return '-';
+}
+
+function downloadFormatter(value, row) {
+    if (row.file) {
+        return `<button class="btn btn-sm btn-primary" onclick="downloadFile('${row.file}', '${row.download_filename}')">下载</button>`;
+    }
+    return '-';
+}
+
+function downloadFile(fileUrl, filename) {
+    fetch(fileUrl)
+        .then(response => response.blob())
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        })
+        .catch(err => {
+            console.error('下载失败:', err);
+            alert('下载文件失败');
+        });
+}
+
+$(function() {
+    $('#logsTable').bootstrapTable();
+});
+    </script>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-table@1.24.0/dist/bootstrap-table.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-table@1.24.0/dist/bootstrap-table.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-table@1.24.0/dist/locale/bootstrap-table-zh-CN.min.js"></script>
+{% endblock content %}

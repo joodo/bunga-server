@@ -7,7 +7,15 @@ from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from solo.models import SingletonModel
+
+
+def validate_file_size(file):
+    file_size = file.size
+    limit_mb = 1
+    if file_size > limit_mb * 1024 * 1024:
+        raise ValidationError(f"File size cannot exceed {limit_mb}MB.")
 
 
 class Site(SingletonModel):
@@ -105,3 +113,19 @@ class Subtitle(models.Model):
     )
     name = models.CharField(max_length=200)
     file = models.FileField(upload_to="subtitles/")
+
+
+class ClientLog(models.Model):
+    channel_id = models.CharField(max_length=100)
+    uploader = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    file = models.FileField(
+        upload_to="logs/",
+        validators=[validate_file_size],
+    )
+
+    class Meta:
+        ordering = ("-created_at",)

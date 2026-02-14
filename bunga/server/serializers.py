@@ -112,6 +112,28 @@ class VideoRecordSerializer(serializers.ModelSerializer):
         )
 
 
+class ClientLogSerializer(serializers.ModelSerializer):
+    uploader = serializers.CharField(source="uploader.username", read_only=True)
+    download_filename = serializers.SerializerMethodField(read_only=True)
+
+    def get_download_filename(self, obj):
+        timestamp = obj.created_at.strftime("%Y%m%d_%H%M%S")
+        filename = f"{obj.channel_id}_{obj.uploader.username}_{timestamp}.log"
+        return filename
+
+    class Meta:
+        model = models.ClientLog
+        fields = (
+            "id",
+            "channel_id",
+            "uploader",
+            "created_at",
+            "file",
+            "download_filename",
+        )
+        read_only_fields = ("uploader", "created_at", "download_filename")
+
+
 class RegisterPayloadSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150, required=True)
     password = serializers.CharField(required=True)

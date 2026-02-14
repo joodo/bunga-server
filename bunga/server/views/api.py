@@ -6,19 +6,18 @@ from pathlib import Path
 from urllib.parse import urlparse
 from dataclasses import asdict
 
-from django.shortcuts import get_object_or_404
 import requests
-
 from django import http
 from django.http import HttpResponse
 from django.core.cache import cache
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User, Permission
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, viewsets, status, mixins
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes, api_view
-from rest_framework.permissions import IsAdminUser, AllowAny
+from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from server import models, serializers
@@ -29,10 +28,8 @@ from server.utils import (
     agora,
     cached_function,
     auto_validated,
-    async_action,
 )
-from server.channel_cache import ChannelCache, PlayStatus, UserInfo
-from utils.log import logger
+from server.channel_cache import ChannelCache
 
 
 class Site(generics.RetrieveUpdateAPIView):
@@ -463,6 +460,21 @@ class SubtitleCreateView(generics.CreateAPIView):
         )
 
 
+class ClientLogViewSet(viewsets.ModelViewSet):
+    queryset = models.ClientLog.objects.all()
+    serializer_class = serializers.ClientLogSerializer
+
+    def get_permissions(self):
+        if self.action == "create":
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsAdminUser]
+        return [permission() for permission in permission_classes]
+
+    def perform_create(self, serializer):
+        serializer.save(uploader=self.request.user)
+
+
 @permission_classes([IsAdminUser])
 @api_view(["GET"])
 def bilibili_qr(request: Request) -> Response:
@@ -822,10 +834,14 @@ def monitor_cache(request, channel_id: str):
             "ready_watchers": list(channel_cache.ready_watchers),
             "buffering_watchers": list(channel_cache.buffering_watchers),
             "has_pending_call": channel_cache.has_pending_call,
-            "play_status": {
-                "playing": channel_cache.play_status.playing,
-                "position_seconds": channel_cache.play_status.position.total_seconds(),
-            } if channel_cache.play_status else None,
+            "play_status": (
+                {
+                    "playing": channel_cache.play_status.playing,
+                    "position_seconds": channel_cache.play_status.position.total_seconds(),
+                }
+                if channel_cache.play_status
+                else None
+            ),
         }
 
         if channel_cache.current_projection:

@@ -59,6 +59,15 @@ def monitor(request, channel_id):
     )
 
 
+@login_required
+def client_logs(request):
+    return __render_dashboard(
+        request,
+        "client_logs.djhtml",
+        {},
+    )
+
+
 def __render_dashboard(request, template_name, data):
     template_data = {
         "site_name": models.Site.get_solo().name,
