@@ -6,6 +6,7 @@ from venv import logger
 from channels.layers import get_channel_layer
 from dacite import Config, from_dict
 
+from server.utils.broadcast import broadcast_message
 from server.schemas import *
 from server.channel_cache import (
     ChannelCache,
@@ -229,7 +230,7 @@ class ChannelService:
 
     async def join_user(self, user: UserInfo) -> None:
         self.channel_cache.upsert_watcher(user)
-        await self._broadcast_message(code="aloha", sender=user)
+        await broadcast_message(channel_id=self.channel_id, code="aloha", sender=user)
 
         self._status_translate(ChannelStatus.PAUSED)
         await self._broadcast_play_status()
@@ -239,7 +240,7 @@ class ChannelService:
         if info is None:
             return
 
-        await self._broadcast_message(code="bye", sender=info)
+        await broadcast_message(channel_id=self.channel_id, code="bye", sender=info)
         if (
             self.channel_cache.channel_status == ChannelStatus.WAITING
             and self.channel_cache.is_all_watchers_ready
@@ -268,7 +269,8 @@ class ChannelService:
         self.channel_cache.channel_status = ChannelStatus.PAUSED
 
         # Broadcast new projection
-        await self._broadcast_message(
+        await broadcast_message(
+            channel_id=self.channel_id,
             code="start-projection",
             sender=sharer,
             data=data,
@@ -279,7 +281,8 @@ class ChannelService:
         if not changed:
             return
 
-        await self._broadcast_message(
+        await broadcast_message(
+            self.channel_id,
             "buffer-state-changed",
             sender,
             BufferStateChangedSchema(is_buffering),
@@ -339,7 +342,8 @@ class ChannelService:
             if not self.channel_cache.init_call_pending_ids(caller_id):
                 await self._all_call_rejected()
             else:
-                await self._broadcast_message(
+                await broadcast_message(
+                    channel_id=self.channel_id,
                     code="call",
                     data=CallSchema(CallAction.CALL),
                 )
@@ -351,14 +355,16 @@ class ChannelService:
 
     async def on_accept_call(self) -> None:
         self.channel_cache.clear_call_pending_ids()
-        await self._broadcast_message(
+        await broadcast_message(
+            channel_id=self.channel_id,
             code="call",
             data=CallSchema(CallAction.ACCEPT),
         )
 
     async def on_cancel_call(self, _: str) -> None:
         self.channel_cache.clear_call_pending_ids()
-        await self._broadcast_message(
+        await broadcast_message(
+            channel_id=self.channel_id,
             code="call",
             data=CallSchema(CallAction.CANCEL),
         )
@@ -366,7 +372,8 @@ class ChannelService:
     async def _all_call_rejected(self) -> None:
         if self.channel_cache.has_pending_call:
             raise Exception("Cannot reject call when there is pending call.")
-        await self._broadcast_message(
+        await broadcast_message(
+            channel_id=self.channel_id,
             code="call",
             data=CallSchema(CallAction.REJECT),
         )
@@ -454,27 +461,9 @@ class ChannelService:
 
     async def _broadcast_play_status(self, *, excludes: list[str] = []) -> None:
         play_status = self.channel_cache.play_status
-        await self._broadcast_message(
+        await broadcast_message(
+            channel_id=self.channel_id,
             code="play-at",
             data=PlayAtSchema.from_play_status(play_status),
             excludes=excludes,
         )
-
-    async def _broadcast_message(
-        self,
-        code: str,
-        sender: UserInfo = UserInfo.server,
-        data: any = None,
-        *,
-        excludes: list[str] = [],
-    ) -> None:
-        event = {
-            "type": "send.event.receiver",
-            "code": code,
-            "sender": asdict(sender),
-            "data": asdict(data) if is_dataclass(data) else None,
-            "excludes": excludes,
-        }
-        layer = get_channel_layer()
-        room_group_name = f"room_{self.channel_id}"
-        return await layer.group_send(room_group_name, event)

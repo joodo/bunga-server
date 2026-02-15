@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from dataclasses import asdict
 
 import requests
+from asgiref.sync import async_to_sync
 from django import http
 from django.http import HttpResponse
 from django.core.cache import cache
@@ -20,6 +21,7 @@ from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from server.utils.broadcast import broadcast_message
 from server import models, serializers
 from server.utils import (
     network,
@@ -862,13 +864,11 @@ def monitor_cache(request, channel_id: str):
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def monitor_reset_channel(request, channel_id: str):
-    """重置频道状态"""
-    try:
-        channel = models.Channel.objects.get(channel_id=channel_id)
-    except models.Channel.DoesNotExist:
+    if not models.Channel.objects.filter(channel_id=channel_id).exists():
         return Response({"error": "channel not found"}, status=404)
 
     try:
+        async_to_sync(broadcast_message)(channel_id, "reset")
         channel_cache = ChannelCache(channel_id)
         channel_cache.reset()
         return Response({"message": "频道状态已重置"}, status=200)
