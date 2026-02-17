@@ -210,7 +210,7 @@ class ChannelCache:
     # Play status
     @property
     def play_status(self) -> PlayStatus:
-        return Cache.get(self.keys.play_status)
+        return Cache.get(self.keys.play_status, PlayStatus())
 
     @play_status.setter
     def play_status(self, new_value: PlayStatus) -> None:
