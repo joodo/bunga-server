@@ -40,7 +40,14 @@ class ChatService:
         sender_id: str,
         json_data: dict,
     ) -> OutboundCommandList:
-        FORWARDING_CODES = {"talk-status", "popmoji", "danmaku", "set-playback", "seek"}
+        FORWARDING_CODES = {
+            "talk-status",
+            "popmoji",
+            "danmaku",
+            "spark",
+            "set-playback",
+            "seek",
+        }
         if code in FORWARDING_CODES:
             await self.channel_service.forward_raw_message(code, sender_id, json_data)
 
