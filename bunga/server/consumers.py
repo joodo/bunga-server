@@ -15,6 +15,8 @@ from utils.log import logger
 
 User = get_user_model()
 
+IgnoreLoggingCode = {"spark"}
+
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
@@ -72,12 +74,13 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 },
             )
 
-    async def receive_json(self, data: dict):
-        logger.info("Received data from %s: %s", self.user_id, data)
+    async def receive_json(self, content: dict, **kwargs):
+        code = content.pop("code", None)
+        if code not in IgnoreLoggingCode:
+            logger.info("Received data from %s: %s", self.user_id, content)
 
-        code = data.pop("code", None)
         commands: OutboundCommandList = await self.service.dispatch(
-            code, self.user_id, data
+            code, self.user_id, content
         )
         for command in commands:
             command: OutboundCommand
@@ -98,18 +101,19 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         if self.user_id in excludes:
             return
 
-        logger.info(
-            "Sending message to client %s: code=%s, sender=%s, data=%s",
-            self.user_id,
-            code,
-            sender,
-            data,
-        )
+        if code not in IgnoreLoggingCode:
+            logger.info(
+                "Sending message to client %s: code=%s, sender=%s, data=%s",
+                self.user_id,
+                code,
+                sender,
+                data,
+            )
 
         await self.send(
             text_data=json.dumps(
                 dict(code=code, sender=sender, **(data or {})),
-                ensure_ascii=False,  # 关键点
+                ensure_ascii=False,
             )
         )
 
