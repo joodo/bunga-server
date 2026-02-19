@@ -137,7 +137,7 @@ class ChatService:
     ) -> OutboundCommandList:
         sender = self.channel_cache.get_watcher_info(sender_id)
         if sender is None:
-            return
+            return []
 
         current = self.channel_cache.current_projection
         if (
