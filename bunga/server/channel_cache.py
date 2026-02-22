@@ -4,6 +4,7 @@ from collections.abc import Awaitable
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import Enum
+from typing import ClassVar, Self
 import json
 
 from django.core.cache import cache as Cache, caches as Caches
@@ -14,6 +15,8 @@ class UserInfo:
     id: str
     name: str
     color_hue: int = 0
+
+    server: ClassVar[Self]
 
 
 UserInfo.server = UserInfo(id="server", name="server")
@@ -52,6 +55,7 @@ class PlayStatus:
             return
 
         if not value and self.playing:
+            assert self._play_at is not None
             delta = datetime.now() - self._play_at
             self._position += delta
             self._play_at = None
@@ -61,6 +65,8 @@ class PlayStatus:
     def position(self) -> timedelta:
         if not self.playing:
             return self._position
+
+        assert self._play_at is not None
         return self._position + (datetime.now() - self._play_at)
 
     @position.setter
@@ -98,7 +104,9 @@ class ChannelCache:
 
     @property
     def redis(self):
-        return Caches["raw_redis"]._cache.get_client()
+        cache_backend = Caches["raw_redis"]
+        client = getattr(cache_backend, "_cache")
+        return client.get_client()
 
     # Client channel name
     def register_client(self, user_id: str, channel_name: str) -> None:
@@ -107,7 +115,7 @@ class ChannelCache:
     def unregister_client(self, user_id: str) -> None:
         self.redis.hdel(self.keys.clients.raw, user_id)
 
-    def get_channel_name(self, user_id: str) -> str | None:
+    def get_client_name(self, user_id: str) -> str | None:
         return self.redis.hget(self.keys.clients.raw, user_id)
 
     @property
@@ -284,16 +292,13 @@ class ChannelCache:
             self.channel_id = channel_id
             self.prefix = f"bunga:channel:{channel_id}"
 
-        class _Key:
-            def __init__(self, key):
-                self.key = key
+        class _Key(str):
+            def __new__(cls, key):
+                return super().__new__(cls, key)
 
             @property
             def raw(self):
-                return Cache.make_key(self.key)
-
-            def __str__(self):
-                return self.key
+                return Cache.make_key(self)
 
         @property
         def projection(self):

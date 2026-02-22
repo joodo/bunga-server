@@ -21,7 +21,7 @@ from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from server.utils.broadcast import broadcast_message
+from server.utils.channels import broadcast_message
 from server import models, serializers
 from server.utils import (
     network,

@@ -42,7 +42,11 @@ api_patterns = [
     path("voice/config", api.VoiceKey.as_view(), name="voice-config"),
     path("monitor/logs", api.monitor_logs, name="monitor-logs"),
     path("monitor/<str:channel_id>/cache", api.monitor_cache, name="monitor-cache"),
-    path("monitor/<str:channel_id>/reset", api.monitor_reset_channel, name="monitor-reset"),
+    path(
+        "monitor/<str:channel_id>/reset",
+        api.monitor_reset_channel,
+        name="monitor-reset",
+    ),
     path(
         "channels/<str:channel_id>/records/<str:record_id>/subtitle",
         api.SubtitleCreateView.as_view(),
@@ -73,6 +77,4 @@ urlpatterns = [
 ]
 
 
-websocket_urlpatterns = [
-    path("chat/<str:channel_id>/", consumers.ChatConsumer.as_asgi()),
-]
+websocket_urlpatterns = [path("chat/", consumers.ChatConsumer.as_asgi())]

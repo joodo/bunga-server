@@ -2,11 +2,12 @@
 
 from dataclasses import asdict, dataclass, is_dataclass
 from venv import logger
+from typing import Any
 
 from channels.layers import get_channel_layer
 from dacite import Config, from_dict
 
-from server.utils.broadcast import broadcast_message
+from server.utils.channels import broadcast_message, send_message
 from server.schemas import *
 from server.channel_cache import (
     ChannelCache,
@@ -22,7 +23,7 @@ from utils.datetime import get_total_microseconds
 class OutboundCommand:
     code: str
     sender: UserInfo = UserInfo.server
-    schema_data: any = None
+    schema_data: Any = None
 
 
 OutboundCommandList = list[OutboundCommand]
@@ -39,7 +40,7 @@ class ChatService:
         code: str,
         sender_id: str,
         json_data: dict,
-    ) -> OutboundCommandList:
+    ) -> None:
         FORWARDING_CODES = {
             "talk-status",
             "popmoji",
@@ -66,11 +67,11 @@ class ChatService:
         }
         handler = METHOD_MAP.get(code)
         if handler is None:
-            return []
+            return
 
         if code not in PROTOCOL_MAP:
             logger.warning("Unknown message received: %s", json_data)
-            return []
+            return
         schema_cls = PROTOCOL_MAP.get(code)
         schema_data = (
             from_dict(schema_cls, json_data, Config(cast=[Enum]))
@@ -80,66 +81,62 @@ class ChatService:
 
         return await handler(sender_id, schema_data)
 
-    async def _handle_whats_on(self, _, __) -> OutboundCommandList:
+    async def _handle_whats_on(
+        self,
+        sender_id: str,
+        schema_data: None,
+    ) -> None:
         projection = self.channel_cache.current_projection
         if projection is None:
-            return []
+            return
 
-        return [
-            OutboundCommand(
-                code="now-playing",
-                schema_data=NowPlayingSchema(
-                    record=projection.record, sharer=projection.sharer
-                ),
-            ),
-        ]
+        await send_message(
+            self.channel_id,
+            "now-playing",
+            receiver_id=sender_id,
+            data=NowPlayingSchema(record=projection.record, sharer=projection.sharer),
+        )
 
     async def _handle_join_in(
         self,
         sender_id: str,
         schema_data: JoinInSchema,
-    ) -> OutboundCommandList:
+    ) -> None:
         # Send current watcher list to client
         watcher_list = self.channel_cache.watcher_list
         buffering_ids = self.channel_cache.buffering_watchers
-        commands = [
-            OutboundCommand(
-                code="here-are",
-                schema_data=HereAreSchema(
-                    watchers=watcher_list,
-                    buffering=buffering_ids,
-                ),
+        await send_message(
+            self.channel_id,
+            "here-are",
+            receiver_id=sender_id,
+            data=HereAreSchema(
+                watchers=watcher_list,
+                buffering=buffering_ids,
             ),
-        ]
+        )
 
         # Join user into channel, tell others
         await self.channel_service.join_user(schema_data.user)
 
         # Apply projection if has, or tell client what is projected
         if schema_data.my_share is not None:
-            c = await self._handle_start_projection(sender_id, schema_data.my_share)
-            commands.extend(c)
+            await self._handle_start_projection(sender_id, schema_data.my_share)
         else:
-            commands.append(
-                OutboundCommand(
-                    code="start-projection",
-                    sender=self.channel_cache.current_projection.sharer,
-                    schema_data=StartProjectionSchema.from_channel_cache(
-                        self.channel_cache
-                    ),
-                )
+            await send_message(
+                self.channel_id,
+                "start-projection",
+                receiver_id=sender_id,
+                data=StartProjectionSchema.from_channel_cache(self.channel_cache),
             )
-
-        return commands
 
     async def _handle_start_projection(
         self,
         sender_id: str,
         schema_data: StartProjectionSchema,
-    ) -> OutboundCommandList:
+    ) -> None:
         sender = self.channel_cache.get_watcher_info(sender_id)
         if sender is None:
-            return []
+            return
 
         current = self.channel_cache.current_projection
         if (
@@ -147,87 +144,75 @@ class ChatService:
             and current.record.record_id == schema_data.video_record.record_id
         ):
             # Playing record_id already, tell sender only
-            return [
-                OutboundCommand(
-                    code="start-projection",
-                    schema_data=StartProjectionSchema.from_channel_cache(
-                        self.channel_cache
-                    ),
-                )
-            ]
+            await send_message(
+                self.channel_id,
+                "start-projection",
+                receiver_id=sender_id,
+                data=StartProjectionSchema.from_channel_cache(self.channel_cache),
+            )
+        else:
+            await self.channel_service.apply_new_projection(sender, schema_data)
 
-        await self.channel_service.apply_new_projection(sender, schema_data)
-
-        return []
-
-    async def _handle_bye(self, sender_id: str, _: None) -> OutboundCommandList:
+    async def _handle_bye(self, sender_id: str, _: None) -> None:
         await self.channel_service.leave_user(sender_id)
-        return []
 
     async def _handle_buffer_state_changed(
         self,
         sender_id: str,
         schema_data: BufferStateChangedSchema,
-    ) -> OutboundCommandList:
+    ) -> None:
         sender = self.channel_cache.get_watcher_info(sender_id)
         if sender is None:
             logger.warning("Unknown sender %s", sender_id)
-            return []
+            return
 
         await self.channel_service.update_buffer_state(
             sender=sender, is_buffering=schema_data.is_buffering
         )
-        return []
 
     async def _handle_play(
         self,
         sender_id: str,
         schema_data: None,
-    ) -> OutboundCommandList:
+    ) -> None:
         sender = self.channel_cache.get_watcher_info(sender_id)
         if sender is None:
             logger.warning("Unknown sender %s", sender_id)
-            return []
+            return
 
         await self.channel_service.set_channel_playback(sender, position=None)
-
-        return []
 
     async def _handle_pause(
         self,
         sender_id: str,
         schema_data: PauseSchema,
-    ) -> OutboundCommandList:
+    ) -> None:
         sender = self.channel_cache.get_watcher_info(sender_id)
         if sender is None:
             logger.warning("Unknown sender %s", sender_id)
-            return []
+            return
 
         await self.channel_service.set_channel_playback(
             sender, position=schema_data.delta
         )
 
-        return []
-
     async def _handle_seek(
         self,
         sender_id: str,
         schema_data: SeekSchema,
-    ) -> OutboundCommandList:
+    ) -> None:
         sender = self.channel_cache.get_watcher_info(sender_id)
         if sender is not None:
             await self.channel_service.seek_to(sender, schema_data.delta)
-
-        return []
 
     async def _handle_call(
         self,
         sender_id: str,
         schema_data: CallSchema,
-    ) -> OutboundCommandList:
+    ) -> None:
         if not self.channel_cache.is_watcher(sender_id):
             logger.warning("Unknown sender %s", sender_id)
-            return []
+            return
 
         match schema_data.action:
             case CallAction.CALL:
@@ -239,11 +224,8 @@ class ChatService:
             case CallAction.CANCEL:
                 await self.channel_service.on_cancel_call(sender_id)
 
-        return []
-
-    async def _handle_play_finished(self, *_, **__) -> OutboundCommandList:
+    async def _handle_play_finished(self, *_, **__) -> None:
         await self.channel_service.finish_playing()
-        return []
 
 
 class ChannelService:
@@ -307,8 +289,8 @@ class ChannelService:
         await broadcast_message(
             self.channel_id,
             "buffer-state-changed",
-            sender,
-            BufferStateChangedSchema(is_buffering),
+            sender=sender,
+            data=BufferStateChangedSchema(is_buffering),
         )
 
         match self.channel_cache.channel_status:
@@ -476,13 +458,15 @@ class ChannelService:
             logger.warning("Unknown sender %s", sender_id)
             return
 
+        layer = get_channel_layer()
+        assert layer
+
         event = {
-            "type": "send.event.receiver",
+            "type": "message.received",
             "code": code,
             "sender": asdict(sender),
             "data": json_data,
         }
-        layer = get_channel_layer()
         room_group_name = f"room_{self.channel_id}"
         return await layer.group_send(room_group_name, event)
 
