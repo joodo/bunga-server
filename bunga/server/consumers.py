@@ -10,7 +10,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from server.models import Channel
-from server.services import ChatService, OutboundCommand, OutboundCommandList
+from server.services import ChatService
 from server.channel_cache import ChannelCache
 from utils.log import logger
 

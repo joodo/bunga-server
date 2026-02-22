@@ -1,10 +1,7 @@
 # PEP-8
 
-from dataclasses import asdict, dataclass, is_dataclass
-from venv import logger
-from typing import Any
-
-from channels.layers import get_channel_layer
+import functools
+from typing import Callable, Awaitable, Any
 from dacite import Config, from_dict
 
 from server.utils.channels import broadcast_message, send_message
@@ -17,16 +14,7 @@ from server.channel_cache import (
     UserInfo,
 )
 from utils.datetime import get_total_microseconds
-
-
-@dataclass
-class OutboundCommand:
-    code: str
-    sender: UserInfo = UserInfo.server
-    schema_data: Any = None
-
-
-OutboundCommandList = list[OutboundCommand]
+from utils.log import logger
 
 
 class ChatService:
@@ -34,6 +22,21 @@ class ChatService:
         self.channel_id = channel_id
         self.channel_cache = ChannelCache(channel_id)
         self.channel_service = ChannelService(channel_id)
+
+    @staticmethod
+    def _require_watcher(
+        func: Callable[[ChatService, UserInfo, Any], Awaitable[None]],
+    ) -> Callable[[ChatService, str, Any], Awaitable[None]]:
+        @functools.wraps(func)
+        async def wrapper(self: ChatService, sender_id: str, data: Any):
+            sender = self.channel_cache.get_watcher_info(sender_id)
+            if sender is None:
+                logger.warning("Unknown sender %s", sender_id)
+                return None
+
+            await func(self, sender, data)
+
+        return wrapper
 
     async def dispatch(
         self,
@@ -117,15 +120,12 @@ class ChatService:
                 data=StartProjectionSchema.from_channel_cache(self.channel_cache),
             )
 
+    @_require_watcher
     async def _handle_start_projection(
         self,
-        sender_id: str,
+        sender: UserInfo,
         schema_data: StartProjectionSchema,
     ) -> None:
-        sender = self.channel_cache.get_watcher_info(sender_id)
-        if sender is None:
-            return
-
         current = self.channel_cache.current_projection
         if (
             current is not None
@@ -135,7 +135,7 @@ class ChatService:
             await send_message(
                 self.channel_id,
                 "start-projection",
-                receiver_id=sender_id,
+                receiver_id=sender.id,
                 data=StartProjectionSchema.from_channel_cache(self.channel_cache),
             )
         else:
@@ -144,63 +144,52 @@ class ChatService:
     async def _handle_bye(self, sender_id: str, _: None) -> None:
         await self.channel_service.leave_user(sender_id)
 
+    @_require_watcher
     async def _handle_buffer_state_changed(
         self,
-        sender_id: str,
+        sender: UserInfo,
         schema_data: BufferStateChangedSchema,
     ) -> None:
-        sender = self.channel_cache.get_watcher_info(sender_id)
-        if sender is None:
-            logger.warning("Unknown sender %s", sender_id)
-            return
-
         await self.channel_service.update_buffer_state(
             sender=sender, is_buffering=schema_data.is_buffering
         )
 
+    @_require_watcher
     async def _handle_play(
         self,
-        sender_id: str,
+        sender: UserInfo,
         schema_data: None,
     ) -> None:
-        sender = self.channel_cache.get_watcher_info(sender_id)
-        if sender is None:
-            logger.warning("Unknown sender %s", sender_id)
-            return
-
         await self.channel_service.set_channel_playback(sender, position=None)
 
+    @_require_watcher
     async def _handle_pause(
         self,
-        sender_id: str,
+        sender: UserInfo,
         schema_data: PauseSchema,
     ) -> None:
-        sender = self.channel_cache.get_watcher_info(sender_id)
-        if sender is None:
-            logger.warning("Unknown sender %s", sender_id)
-            return
-
         await self.channel_service.set_channel_playback(
             sender, position=schema_data.delta
         )
 
+    @_require_watcher
     async def _handle_seek(
         self,
-        sender_id: str,
+        sender: UserInfo,
         schema_data: SeekSchema,
     ) -> None:
-        sender = self.channel_cache.get_watcher_info(sender_id)
-        if sender is not None:
-            await self.channel_service.seek_to(sender, schema_data.delta)
+        await self.channel_service.seek_to(sender, schema_data.delta)
 
+    async def _handle_play_finished(self, *_, **__) -> None:
+        await self.channel_service.finish_playing()
+
+    @_require_watcher
     async def _handle_call(
         self,
-        sender_id: str,
+        sender: UserInfo,
         schema_data: CallSchema,
     ) -> None:
-        if not self.channel_cache.is_watcher(sender_id):
-            logger.warning("Unknown sender %s", sender_id)
-            return
+        sender_id = sender.id
 
         match schema_data.action:
             case CallAction.CALL:
@@ -211,9 +200,6 @@ class ChatService:
                 await self.channel_service.on_reject_call(sender_id)
             case CallAction.CANCEL:
                 await self.channel_service.on_cancel_call(sender_id)
-
-    async def _handle_play_finished(self, *_, **__) -> None:
-        await self.channel_service.finish_playing()
 
 
 class ChannelService:
