@@ -59,8 +59,12 @@ class SeekSchema:
 
 
 @dataclass
-class SetPlaybackSchema:
-    is_play: bool
+class PauseSchema:
+    position: int
+
+    @property
+    def delta(self) -> timedelta:
+        return timedelta(microseconds=float(self.position))
 
 
 @dataclass
@@ -101,7 +105,8 @@ PROTOCOL_MAP = {
     "start-projection": StartProjectionSchema,
     "here-are": HereAreSchema,
     "buffer-state-changed": BufferStateChangedSchema,
-    "set-playback": SetPlaybackSchema,
+    "play": None,
+    "pause": PauseSchema,
     "seek": SeekSchema,
     "bye": None,
     "call": CallSchema,

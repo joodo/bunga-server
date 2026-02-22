@@ -45,7 +45,8 @@ class ChatService:
             "popmoji",
             "danmaku",
             "spark",
-            "set-playback",
+            "play",
+            "pause",
             "seek",
         }
         if code in FORWARDING_CODES:
@@ -57,7 +58,8 @@ class ChatService:
             "start-projection": self._handle_start_projection,
             "bye": self._handle_bye,
             "buffer-state-changed": self._handle_buffer_state_changed,
-            "set-playback": self._handle_set_playback,
+            "play": self._handle_play,
+            "pause": self._handle_pause,
             "seek": self._handle_seek,
             "call": self._handle_call,
             "play-finished": self._handle_play_finished,
@@ -177,10 +179,24 @@ class ChatService:
         )
         return []
 
-    async def _handle_set_playback(
+    async def _handle_play(
         self,
         sender_id: str,
-        schema_data: SetPlaybackSchema,
+        schema_data: None,
+    ) -> OutboundCommandList:
+        sender = self.channel_cache.get_watcher_info(sender_id)
+        if sender is None:
+            logger.warning("Unknown sender %s", sender_id)
+            return []
+
+        await self.channel_service.set_channel_playback(sender, position=None)
+
+        return []
+
+    async def _handle_pause(
+        self,
+        sender_id: str,
+        schema_data: PauseSchema,
     ) -> OutboundCommandList:
         sender = self.channel_cache.get_watcher_info(sender_id)
         if sender is None:
@@ -188,7 +204,7 @@ class ChatService:
             return []
 
         await self.channel_service.set_channel_playback(
-            sender, is_play=schema_data.is_play
+            sender, position=schema_data.delta
         )
 
         return []
@@ -310,11 +326,15 @@ class ChannelService:
                 else:
                     self.channel_cache.set_play(False)
 
-    async def set_channel_playback(self, sender: UserInfo, is_play: bool) -> None:
-        if not is_play:
+    async def set_channel_playback(
+        self, sender: UserInfo, position: timedelta | None
+    ) -> None:
+        print(position)
+        if position:
             # PAUSE
+            self.channel_cache.set_position(position)
             self._status_translate(ChannelStatus.PAUSED)
-            await self._broadcast_play_status()
+            await self._broadcast_play_status(excludes=[sender])
         else:
             # PLAY
             if self.channel_cache.channel_status != ChannelStatus.PAUSED:
@@ -334,7 +354,7 @@ class ChannelService:
             case ChannelStatus.SEEKING:
                 self.channel_cache.set_position(position)
                 SeekCountdownManager.reset(self.channel_id, self._evaluate_to_play())
-        await self._broadcast_play_status(excludes=[sender.id])
+        await self._broadcast_play_status(excludes=[sender])
 
     async def finish_playing(self) -> None:
         # Play finished, back to position 0, and pause
@@ -466,11 +486,11 @@ class ChannelService:
         room_group_name = f"room_{self.channel_id}"
         return await layer.group_send(room_group_name, event)
 
-    async def _broadcast_play_status(self, *, excludes: list[str] = []) -> None:
+    async def _broadcast_play_status(self, *, excludes: list[UserInfo] = []) -> None:
         play_status = self.channel_cache.play_status
         await broadcast_message(
             channel_id=self.channel_id,
             code="play-at",
             data=PlayAtSchema.from_play_status(play_status),
-            excludes=excludes,
+            excludes=[u.id for u in excludes],
         )

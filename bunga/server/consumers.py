@@ -77,7 +77,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def receive_json(self, content: dict, **kwargs):
         code = content.pop("code", None)
         if code not in IgnoreLoggingCode:
-            logger.info("Received data from %s: %s", self.user_id, content)
+            logger.info("Received %s data from %s: %s", code, self.user_id, content)
 
         commands: OutboundCommandList = await self.service.dispatch(
             code, self.user_id, content
