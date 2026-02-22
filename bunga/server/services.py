@@ -41,18 +41,6 @@ class ChatService:
         sender_id: str,
         json_data: dict,
     ) -> None:
-        FORWARDING_CODES = {
-            "talk-status",
-            "popmoji",
-            "danmaku",
-            "spark",
-            "play",
-            "pause",
-            "seek",
-        }
-        if code in FORWARDING_CODES:
-            await self.channel_service.forward_raw_message(code, sender_id, json_data)
-
         METHOD_MAP = {
             "whats-on": self._handle_whats_on,
             "join-in": self._handle_join_in,
@@ -449,26 +437,6 @@ class ChannelService:
         self.channel_cache.set_play(self.channel_cache.is_all_watchers_ready)
 
     # Broadcast Message
-
-    async def forward_raw_message(
-        self, code: str, sender_id: str, json_data: dict
-    ) -> None:
-        sender = self.channel_cache.get_watcher_info(sender_id)
-        if sender is None:
-            logger.warning("Unknown sender %s", sender_id)
-            return
-
-        layer = get_channel_layer()
-        assert layer
-
-        event = {
-            "type": "message.received",
-            "code": code,
-            "sender": asdict(sender),
-            "data": json_data,
-        }
-        room_group_name = f"room_{self.channel_id}"
-        return await layer.group_send(room_group_name, event)
 
     async def _broadcast_play_status(self, *, excludes: list[UserInfo] = []) -> None:
         play_status = self.channel_cache.play_status

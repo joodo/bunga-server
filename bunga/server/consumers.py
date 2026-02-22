@@ -24,8 +24,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         await self.accept()
 
-        self.user_id: str = self.scope["user"].username
-        self.channel: Channel = self.scope["channel"]
+        self.user_id: str = self.scope["user"].username  # type: ignore
+        self.channel: Channel = self.scope["channel"]  # type: ignore
 
         self.channel_cache = ChannelCache(self.channel.channel_id)
         self.channel_cache.register_client(self.user_id, self.channel_name)
@@ -61,6 +61,26 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         code = content.pop("code", None)
         if code not in IgnoreLoggingCode:
             logger.info("Received %s data from %s: %s", code, self.user_id, content)
+
+        FORWARDING_CODES = {
+            "talk-status",
+            "popmoji",
+            "danmaku",
+            "spark",
+            "play",
+            "pause",
+            "seek",
+        }
+        if code in FORWARDING_CODES:
+            sender = self.channel_cache.get_watcher_info(self.user_id)
+            if sender:
+                event = {
+                    "type": "message.received",
+                    "code": code,
+                    "sender": asdict(sender),
+                    "data": content,
+                }
+                await self.channel_layer.group_send(self.room_group_name, event)
 
         await self.service.dispatch(code, self.user_id, content)
 
