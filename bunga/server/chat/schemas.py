@@ -5,7 +5,7 @@ from datetime import timedelta
 from enum import Enum
 
 from utils.datetime import get_total_microseconds
-from server.channel_cache import ChannelCache, PlayStatus, UserInfo, VideoRecord
+from .channel_cache import ChannelCache, PlayStatus, UserInfo, VideoRecord
 
 
 @dataclass
@@ -32,9 +32,12 @@ class StartProjectionSchema:
     position: int = 0
 
     @classmethod
-    def from_channel_cache(cls, cache: ChannelCache) -> StartProjectionSchema:
+    def from_channel_cache(cls, cache: ChannelCache) -> StartProjectionSchema | None:
+        current_projection = cache.current_projection
+        if not current_projection:
+            return None
         return cls(
-            video_record=cache.current_projection.record,
+            video_record=current_projection.record,
             position=get_total_microseconds(cache.play_status.position),
         )
 

@@ -8,6 +8,7 @@ from typing import ClassVar, Self
 import json
 
 from django.core.cache import cache as Cache, caches as Caches
+from .multition_meta import MultitonMeta
 
 
 @dataclass(frozen=True)
@@ -83,22 +84,9 @@ class ChannelStatus(Enum):
     SEEKING_DURING_PLAYBACK = b"seeking"
 
 
-class ChannelCache:
-    _instances = {}
-
-    def __new__(cls, channel_id: str, *args, **kwargs):
-        if channel_id not in cls._instances:
-            instance = super().__new__(cls)
-            cls._instances[channel_id] = instance
-            return instance
-        else:
-            return cls._instances[channel_id]
+class ChannelCache(metaclass=MultitonMeta):
 
     def __init__(self, channel_id: str):
-        if hasattr(self, "_initialized"):
-            return
-        self._initialized = True
-
         self.channel_id = channel_id
         self.keys = self.Keys(channel_id)
 

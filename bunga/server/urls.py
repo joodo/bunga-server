@@ -9,7 +9,7 @@ from rest_framework_simplejwt.views import (
     token_verify,
 )
 
-from . import consumers
+from .chat import consumers
 from .views import pages, dashboard, api
 
 dashboard_patterns = [

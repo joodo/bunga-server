@@ -21,7 +21,7 @@ from rest_framework.decorators import action, permission_classes, api_view
 from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from server.utils.channels import broadcast_message
+from server.chat.utils import broadcast_message
 from server import models, serializers
 from server.utils import (
     network,
@@ -31,7 +31,7 @@ from server.utils import (
     cached_function,
     auto_validated,
 )
-from server.channel_cache import ChannelCache
+from server.chat.channel_cache import ChannelCache
 
 
 class Site(generics.RetrieveUpdateAPIView):

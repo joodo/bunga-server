@@ -1,15 +1,17 @@
 # PEP-8
 
+from typing import Any
+
 import asyncio
 from channels.consumer import AsyncConsumer
 
-from server.services import ChatService
-from server.channel_cache import ChannelCache
+from server.chat.services import ChatService
+from server.chat.channel_cache import ChannelCache
 from utils.log import logger
 
 
 class PresenceWorker(AsyncConsumer):
-    async def delayed_offline(self, event: dict[str, any]) -> None:
+    async def delayed_offline(self, event: dict[str, Any]) -> None:
         await asyncio.sleep(3)
 
         channel_id, user_id = event["channel_id"], event["user_id"]
@@ -17,9 +19,9 @@ class PresenceWorker(AsyncConsumer):
         channel_name = channel_cache.get_client_name(user_id)
         if channel_name is None:
             service = ChatService(channel_id)
-            await service.dispatch("bye", user_id, None)
+            await service.dispatch("bye", user_id, {})
 
-    async def delayed_clean_channel(self, event: dict[str, any]) -> None:
+    async def delayed_clean_channel(self, event: dict[str, Any]) -> None:
         await asyncio.sleep(5 * 60)
 
         channel_id = event["channel_id"]

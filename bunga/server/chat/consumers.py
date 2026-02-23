@@ -10,9 +10,9 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 
 from server.models import Channel
-from server.services import ChatService
-from server.channel_cache import ChannelCache
 from utils.log import logger
+from .services import ChatService
+from .channel_cache import ChannelCache
 
 
 User = get_user_model()
