@@ -13,10 +13,6 @@
                   method="patch"
                   novalidate>
                 {% csrf_token %}
-                <div class="form-group ">
-                    <label>Name</label>
-                    <input name="name" class="form-control" type="text" value="">
-                </div>
                 {% render_form channel_serializer %}
                 {% bootstrap_button "保存" button_type="submit" button_class="btn-primary" %}
                 <button type="button"

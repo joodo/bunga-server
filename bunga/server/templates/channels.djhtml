@@ -5,22 +5,19 @@
 {% block content %}
     {% load django_bootstrap5 %}
     {% load rest_framework %}
-    <div class="card mb-3">
+    <!--<div class="card mb-3">
         <div class="card-header">
             服务器信息（<a href="https://cloud.tencent.com/product/im">腾讯云</a>）
         </div>
         <div class="card-body">
-            <form id="chat-config-form"
-                  class="bunga-form"
-                  action="{% url 'api:chat-config' %}"
-                  method="put">
+            <form id="chat-config-form" class="bunga-form" action="{% url 'api:chat-config' %}" method="put">
                 <input type="hidden" name="_method" value="put" />
                 {% csrf_token %}
                 {% render_form chat_serializer %}
                 <button id="update-chat-config-btn" type="button" class="btn btn-primary">保存</button>
             </form>
         </div>
-    </div>
+    </div>-->
     <div class="card mb-3">
         <div class="card-header">频道列表</div>
         <div class="card-body">
@@ -39,7 +36,6 @@
                     <tr>
                         <th data-field="channel_id">编号</th>
                         <th data-field="name">名称</th>
-                        <th data-field="member_count">客户端数量</th>
                         <th data-field="operate" data-formatter="operateFormatter">操作</th>
                     </tr>
                 </thead>

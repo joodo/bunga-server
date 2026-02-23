@@ -64,9 +64,10 @@
                                     {% endif %}
                                 &nbsp;&nbsp;</a>
                                 <ul class="dropdown-menu">
-                                    {% for channel_id in channel_ids %}
+                                    {% for channel in channels %}
                                         <li>
-                                            <a class="dropdown-item" href="{% url 'channel-detail' channel_id %}">{{ channel_id }}</a>
+                                            <a class="dropdown-item"
+                                               href="{% url 'channel-detail' channel.channel_id %}">{{ channel.name }} [{{ channel.channel_id }}]</a>
                                         </li>
                                     {% endfor %}
                                     <li>
