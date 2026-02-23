@@ -71,112 +71,6 @@ class ChannelViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.ChannelSerializer
     permission_classes = [IsAdminUser]
 
-    def create(self, request: Request) -> Response:
-        config = models.IMKey.get_solo()
-
-        data = request.data
-        response = tencent.request(
-            config,
-            "group_open_http_svc/create_group",
-            {
-                "Type": "Private",
-                "GroupId": data.get("group_id"),
-                "Name": data.get("name"),
-            },
-        )
-
-        match response.get("ErrorCode"):
-            case 0:
-                data = {
-                    "group_id": response.get("GroupId"),
-                    "name": data.get("name"),
-                }
-            case 10021 | 10025:
-                return Response(
-                    {
-                        "group_id": response.get("ErrorInfo"),
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            case _:
-                return Response(
-                    {
-                        "name": response.get("ErrorInfo"),
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        new_channel = models.Channel.objects.create(channel_id=data.get("group_id"))
-
-        return Response(data, status=status.HTTP_201_CREATED)
-
-    def retrieve(self, request: Request, pk=None) -> Response:
-        instance = self.get_object()
-        data = _get_channel_info(instance.channel_id)
-        serializer = self.get_serializer(instance)
-        return Response(data | serializer.data)
-
-    def partial_update(self, request: Request, pk=None):
-        instance = self.get_object()
-
-        config = models.IMKey.get_solo()
-        data = request.data
-        response = tencent.request(
-            config,
-            "group_open_http_svc/modify_group_base_info",
-            {
-                "GroupId": instance.channel_id,
-                "Name": data.get("name"),
-            },
-        )
-
-        if response.get("ErrorCode") != 0:
-            return Response(
-                {
-                    "detail": response.get("ErrorInfo"),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        serializer = self.get_serializer(instance, data=data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-
-        return Response(
-            {
-                "detail": "success",
-            },
-            status=status.HTTP_206_PARTIAL_CONTENT,
-        )
-
-    def destroy(self, request: Request, pk=None) -> Response:
-        if not pk:
-            return Response(
-                {
-                    "detail": "group_id is required.",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        config = models.IMKey.get_solo()
-        response = tencent.request(
-            config,
-            "group_open_http_svc/destroy_group",
-            {
-                "GroupId": pk,
-            },
-        )
-
-        if response.get("ErrorCode") != 0:
-            return Response(
-                {
-                    "detail": response.get("ErrorInfo"),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        return super().destroy(request, pk)
-
     @action(
         detail=True,
         methods=["post"],
@@ -279,15 +173,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
             },
         }
 
-        data["channel"] = _get_channel_info(channel.channel_id)
-
-        im_key = models.IMKey.get_solo()
-        data["im"] = {
-            "service": "tencent",
-            "app_id": im_key.tencent_app_id,
-            "user_id": validated["username"],
-            "user_sig": tencent.generate_user_sig(config, validated["username"]),
-        }
+        data["channel"] = serializers.ChannelSerializer(channel).data
 
         try:
             agoraInfo = models.VoiceKey.get_solo()
@@ -642,34 +528,6 @@ def _get_bili_info(sess: str, force: bool = False):
     seconds_remaining = (end_of_day - now).total_seconds()
     cache.set(cache_key, info, seconds_remaining)
     return info
-
-
-@cached_function(lambda channel_id: f"channel:{channel_id}")
-def _get_channel_info(channel_id: str) -> dict:
-    config = models.IMKey.get_solo()
-    response = tencent.request(
-        config,
-        "group_open_http_svc/get_group_info",
-        {
-            "GroupIdList": [channel_id],
-            "ResponseFilter": {
-                "GroupBaseInfoFilter": [
-                    "GroupId",
-                    "Name",
-                    "FaceUrl",
-                    "MemberNum",
-                ],
-            },
-        },
-    )
-
-    item = response["GroupInfo"][0]
-    return {
-        "id": item.get("GroupId"),
-        "name": item.get("Name"),
-        "avatar": item.get("FaceUrl"),
-        "member_count": item.get("MemberNum"),
-    }
 
 
 @cached_function(lambda host, username, _: f"alist:{username}@{host}")

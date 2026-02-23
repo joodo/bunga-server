@@ -1,5 +1,3 @@
-# PEP-8
-
 # Rename this file to 'settings_local.py' and adjust the settings as needed.
 
 

@@ -225,7 +225,7 @@ try:
             INSTALLED_APPS += ["debug_toolbar"]
             MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
     except NameError:
-        pass
+        print("no debug!!!")
 
     SIMPLE_JWT["SIGNING_KEY"] = SECRET_KEY
 except ImportError:
