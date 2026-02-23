@@ -78,6 +78,7 @@ class ChannelPlaybackService(metaclass=MultitonMeta):
         # Play finished, back to position 0, and pause
         self.channel_cache.play_status = PlayStatus()
         self.state.translate_to(ChannelStatus.PAUSED)
+        await self.broadcast()
 
     async def broadcast(self, *, excludes: list[UserInfo] = []) -> None:
         play_status = self.channel_cache.play_status
