@@ -87,8 +87,9 @@ VITE_BUNGA_SERVER=https://api.yourdomain.com
 
 ### Core Mechanism
 
-1. **Authoritative Server**: The server is the single source of truth for media info, playback progress, and states (Play/Pause/Buffering). Client-side actions are treated as requests, with final execution governed by server commands.
-2. **Silent Catch-up**: When a client's local progress drifts from the server, the following strategies apply:
+1. **Authoritative Server**: The server is the single source of truth for media info, playback progress, and states (Play/Pause/Buffering).
+2. **Remote Execution**: While client-side actions are treated as requests, with final execution governed by server commands, PAUSE and SEEK are executed locally upon client activation to ensure a seamless user experience.
+3. **Silent Catch-up**: When a client's local progress drifts from the server, the following strategies apply:
 
 | Drift (Threshold) | Strategy            | Description                                                                |
 | ----------------- | ------------------- | -------------------------------------------------------------------------- |
@@ -109,12 +110,12 @@ Clients report their status to the server in real-time.
 
 The server manages the global room state based on client feedback.
 
-| State     | Description                                                                                                                            |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `PAUSED`  | Default/Paused state. Synchronization logic is suspended.                                                                              |
-| `WAITING` | Triggered when any client reports `BUFFERING`. Other clients are instructed to pause and wait.                                         |
-| `PLAYING` | Active playback. Progress is calculated based on `playing-start-timestamp` relative to the server clock.                               |
-| `SEEKING` | Active seeking by a client. The server broadcasts the seek position; a 2-second cooldown timer is used before resuming mandatory sync. |
+| State                     | Description                                                                                                                                                                                             |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PAUSED`                  | Default/Paused state. Synchronization logic is suspended.                                                                                                                                               |
+| `WAITING`                 | Triggered when any client reports `BUFFERING`. Other clients are instructed to pause and wait.                                                                                                          |
+| `PLAYING`                 | Active playback. Progress is calculated based on playing start timestamp relative to the server clock.                                                                                                  |
+| `SEEKING_DURING_PLAYBACK` | Active seeking by a client when playing (Note: Seeking while paused is treated as `PAUSED`). The server broadcasts the seek position; a 2-second cooldown timer is used before resuming mandatory sync. |
 
 ```mermaid
 stateDiagram-v2
@@ -129,8 +130,8 @@ stateDiagram-v2
             PLAYING --> WAITING : One Or More Clients BUFFERING
         }
 
-        SYNCGROUP --> SEEKING : Initiate SEEK
-        SEEKING --> SYNCGROUP : Timer Expires / Final Sync
+        SYNCGROUP --> SEEKING_DURING_PLAYBACK : Initiate SEEK
+        SEEKING_DURING_PLAYBACK --> SYNCGROUP : Timer Expires / Final Sync
     }
 
     PLAYINGGROUP --> PAUSED : Request Pause
@@ -141,14 +142,14 @@ stateDiagram-v2
 
 ### Workflow
 
-| Scenario          | Client Action                          | Server Action                                                                                         | Notes                               |
-| ----------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| **Join Room**     | Pulls current progress from server.    | If `PLAYING`, switches to `BUFFERING` and tells others to wait.                                       | Ensures new users don't break sync. |
-| **Buffer Update** | Reports `READY` or `BUFFERING` status. | If state is `BUFFERING` and **all** clients are `READY`, switches to `PLAYING` and broadcasts "Play". | Coordinated resume.                 |
-| **Request Pause** | Sends pause request.                   | Switches to `PAUSED` and broadcasts "Pause" to all clients.                                           |                                     |
-| **Request Play**  | Sends play request.                    | Switches to `PLAYING` (if all `READY`) or `BUFFERING`. Broadcasts command.                            |                                     |
-| **Client Seek**   | Seeks locally and notifies server.     | If not `PAUSED`, switches to `SEEKING`. Broadcasts position and starts sync timer.                    | Prevents "seek loops".              |
-| **Force Sync**    | Syncs to the target timestamp.         | Broadcasts current authoritative position to all clients.                                             |                                     |
+| Scenario          | Client Action                                                              | Server Action                                                                                                                                                                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Join Room**     | Pulls current progress from server.                                        | If `PLAYING`, switches to `PAUSED` to tell others to wait.                                                                                                                                                                                                                        |
+| **Buffer Update** | Reports `READY` or `BUFFERING` status.                                     | If server state is `BUFFERING` and **all** clients are `READY`, switches to `PLAYING` and broadcasts "Play".                                                                                                                                                                      |
+| **Request Pause** | Sends pause notification with current position, and pause playback locally | Switches to `PAUSED` and broadcasts "Pause" to all clients.                                                                                                                                                                                                                       |
+| **Request Play**  | Sends play request.                                                        | Switches to `PLAYING` (if all `READY`) or `BUFFERING`. <br/>Broadcasts command.                                                                                                                                                                                                   |
+| **Client Seek**   | Seeks locally and notifies server.                                         | If not `PAUSED`, switches to `SEEKING_DURING_PLAYBACK`. <br/>Broadcasts the position and initiates a sync timer; on expiration, a `Force Sync` is triggered to align the playback progress across all clients. <br/>Playback progress will be synchronized to the slowest client. |
+| **Force Sync**    | Syncs to the target timestamp.                                             | Broadcasts current authoritative position to all clients.                                                                                                                                                                                                                         |
 
 ## 📅 Roadmap (Upcoming)
 

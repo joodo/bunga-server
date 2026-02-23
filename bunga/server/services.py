@@ -276,7 +276,8 @@ class ChannelService:
                 if self.channel_cache.is_all_watchers_ready:
                     self._status_translate(ChannelStatus.PLAYING)
                     await self._broadcast_play_status()
-            case ChannelStatus.SEEKING:
+            case ChannelStatus.SEEKING_DURING_PLAYBACK:
+                # Playback progress will be synchronized to the slowest client.
                 if self.channel_cache.is_all_watchers_ready:
                     self.channel_cache.set_play(True)
                 else:
@@ -306,8 +307,8 @@ class ChannelService:
             case ChannelStatus.PLAYING | ChannelStatus.WAITING:
                 self.channel_cache.set_position(position)
                 SeekCountdownManager.reset(self.channel_id, self._evaluate_to_play())
-                self._status_translate(ChannelStatus.SEEKING)
-            case ChannelStatus.SEEKING:
+                self._status_translate(ChannelStatus.SEEKING_DURING_PLAYBACK)
+            case ChannelStatus.SEEKING_DURING_PLAYBACK:
                 self.channel_cache.set_position(position)
                 SeekCountdownManager.reset(self.channel_id, self._evaluate_to_play())
         await self._broadcast_play_status(excludes=[sender])
@@ -377,7 +378,10 @@ class ChannelService:
             # * -> PAUSED
             (ChannelStatus.PLAYING, ChannelStatus.PAUSED): self._on_pause_playback,
             (ChannelStatus.WAITING, ChannelStatus.PAUSED): self._on_pause_playback,
-            (ChannelStatus.SEEKING, ChannelStatus.PAUSED): self._on_seek_paused,
+            (
+                ChannelStatus.SEEKING_DURING_PLAYBACK,
+                ChannelStatus.PAUSED,
+            ): self._on_seek_paused,
             # WAITING <-> PLAYING
             (ChannelStatus.PLAYING, ChannelStatus.WAITING): self._on_client_buffer,
             (ChannelStatus.WAITING, ChannelStatus.PLAYING): self._on_all_clients_ready,
@@ -385,11 +389,17 @@ class ChannelService:
             (ChannelStatus.PAUSED, ChannelStatus.WAITING): None,
             (ChannelStatus.PAUSED, ChannelStatus.PLAYING): self._on_play,
             # WAITING / PLAYING -> SEEKING
-            (ChannelStatus.PLAYING, ChannelStatus.SEEKING): None,
-            (ChannelStatus.WAITING, ChannelStatus.SEEKING): None,
+            (ChannelStatus.PLAYING, ChannelStatus.SEEKING_DURING_PLAYBACK): None,
+            (ChannelStatus.WAITING, ChannelStatus.SEEKING_DURING_PLAYBACK): None,
             # SEEKING -> WAITING / PLAYING
-            (ChannelStatus.SEEKING, ChannelStatus.PLAYING): self._on_seek_timeout,
-            (ChannelStatus.SEEKING, ChannelStatus.WAITING): self._on_seek_timeout,
+            (
+                ChannelStatus.SEEKING_DURING_PLAYBACK,
+                ChannelStatus.PLAYING,
+            ): self._on_seek_timeout,
+            (
+                ChannelStatus.SEEKING_DURING_PLAYBACK,
+                ChannelStatus.WAITING,
+            ): self._on_seek_timeout,
         }
 
         current_status = self.channel_cache.channel_status

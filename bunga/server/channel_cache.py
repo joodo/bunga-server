@@ -80,7 +80,7 @@ class ChannelStatus(Enum):
     PAUSED = b"paused"
     WAITING = b"waiting"
     PLAYING = b"playing"
-    SEEKING = b"seeking"
+    SEEKING_DURING_PLAYBACK = b"seeking"
 
 
 class ChannelCache:
