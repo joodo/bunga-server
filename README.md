@@ -60,28 +60,19 @@ npm start
 
 ```
 
-## 🔌 API & WebSocket Events (TODO)
+## 🔌 API & WebSocket Events
 
-### Connection
+### Restful API
 
-- **Endpoint**: `ws://your-server-ip:3000`
+- **Endpoint**: `http://your-server-ip:8000/api`
 
-### Server-to-Client Events(TODO: API介绍)
+See [API view](/bunga/server/views/api.py) for more details.
 
-| Event        | Payload                      | Description                                 |
-| ------------ | ---------------------------- | ------------------------------------------- |
-| `syncState`  | `{ isPlaying, currentTime }` | Broadcasts the master state to all members. |
-| `userJoined` | `{ username, count }`        | Notifies users when someone new arrives.    |
+### WebSocket
 
-## 📱 Integration with bunga-player
+- **WebSocket**: `http://your-server-ip:8000/chat`
 
-To connect your frontend instance to this server, ensure the `VITE_SERVER_URL` or equivalent config in [bunga-player](https://github.com/joodo/bunga_player) points to your deployment:
-
-```env
-# Example frontend .env
-VITE_BUNGA_SERVER=https://api.yourdomain.com
-
-```
+See [Schema File](/bunga/server/chat/schemas.py) for more details.
 
 ## 🔄 Synchronization Logic
 
