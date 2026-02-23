@@ -69,47 +69,8 @@ class VoiceKey(generics.RetrieveUpdateAPIView):
 class ChannelViewSet(viewsets.ModelViewSet):
     queryset = models.Channel.objects.all()
     serializer_class = serializers.ChannelSerializer
+    permission_classes = [IsAdminUser]
 
-    @permission_classes([IsAdminUser])
-    def list(self, request: Request) -> Response:
-        queryset = self.filter_queryset(self.get_queryset())
-        serializer = self.get_serializer(queryset, many=True)
-        local_data = serializer.data
-
-        config = models.IMKey.get_solo()
-
-        group_ids = [item["channel_id"] for item in local_data]
-        if not group_ids:
-            return Response([])
-
-        response = tencent.request(
-            config,
-            "group_open_http_svc/get_group_info",
-            {
-                "GroupIdList": group_ids,
-                "ResponseFilter": {
-                    "GroupBaseInfoFilter": [
-                        "GroupId",
-                        "Name",
-                        "FaceUrl",
-                        "MemberNum",
-                    ],
-                },
-            },
-        )
-
-        data = [
-            {
-                "channel_id": item.get("GroupId"),
-                "name": item.get("Name"),
-                "avatar": item.get("FaceUrl"),
-                "member_count": item.get("MemberNum"),
-            }
-            for item in response["GroupInfo"]
-        ]
-        return Response(data)
-
-    @permission_classes([IsAdminUser])
     def create(self, request: Request) -> Response:
         config = models.IMKey.get_solo()
 
@@ -149,14 +110,12 @@ class ChannelViewSet(viewsets.ModelViewSet):
 
         return Response(data, status=status.HTTP_201_CREATED)
 
-    @permission_classes([IsAdminUser])
     def retrieve(self, request: Request, pk=None) -> Response:
         instance = self.get_object()
         data = _get_channel_info(instance.channel_id)
         serializer = self.get_serializer(instance)
         return Response(data | serializer.data)
 
-    @permission_classes([IsAdminUser])
     def partial_update(self, request: Request, pk=None):
         instance = self.get_object()
 
@@ -190,7 +149,6 @@ class ChannelViewSet(viewsets.ModelViewSet):
             status=status.HTTP_206_PARTIAL_CONTENT,
         )
 
-    @permission_classes([IsAdminUser])
     def destroy(self, request: Request, pk=None) -> Response:
         if not pk:
             return Response(
