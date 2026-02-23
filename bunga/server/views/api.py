@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 from dataclasses import asdict
+from typing import Any
 
 import requests
 from asgiref.sync import async_to_sync
@@ -26,7 +27,6 @@ from server import models, serializers
 from server.utils import (
     network,
     bilibili as bili_utils,
-    tencent,
     agora,
     cached_function,
     auto_validated,
@@ -79,8 +79,6 @@ class ChannelViewSet(viewsets.ModelViewSet):
     )
     @auto_validated
     def register(self, validated, request: Request, pk=None) -> Response:
-        config = models.IMKey.get_solo()
-
         def register_user() -> User:
             return User.objects.create_user(
                 validated["username"],
@@ -166,7 +164,7 @@ class ChannelViewSet(viewsets.ModelViewSet):
                     status_code = status.HTTP_200_OK
 
         refresh = RefreshToken.for_user(user)
-        data = {
+        data: dict[str, Any] = {
             "token": {
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
@@ -616,7 +614,7 @@ def _parse_host(host):
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def monitor_logs(request):
-    """获取最近的日志内容"""
+    """Get the most recent log entries"""
     from django.conf import settings
 
     log_dir = settings.LOG_DIR
@@ -625,7 +623,7 @@ def monitor_logs(request):
     logs = []
     if log_file.exists():
         with open(log_file, "r", encoding="utf-8") as f:
-            # 读取最后 100 行
+            # Read the last 100 lines
             lines = f.readlines()
             logs = lines[-100:] if len(lines) > 100 else lines
 
@@ -635,7 +633,7 @@ def monitor_logs(request):
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
 def monitor_cache(request, channel_id: str):
-    """获取单个频道的缓存信息"""
+    """Get cache info for a single channel"""
     try:
         channel = models.Channel.objects.get(channel_id=channel_id)
     except models.Channel.DoesNotExist:
@@ -687,6 +685,6 @@ def monitor_reset_channel(request, channel_id: str):
         async_to_sync(broadcast_message)(channel_id, "reset")
         channel_cache = ChannelCache(channel_id)
         channel_cache.reset()
-        return Response({"message": "频道状态已重置"}, status=200)
+        return Response({"message": "Channel state has been reset"}, status=200)
     except Exception as e:
         return Response({"error": str(e)}, status=500)

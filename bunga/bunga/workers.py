@@ -16,8 +16,8 @@ class PresenceWorker(AsyncConsumer):
 
         channel_id, user_id = event["channel_id"], event["user_id"]
         channel_cache = ChannelCache(channel_id)
-        channel_name = channel_cache.get_client_name(user_id)
-        if channel_name is None:
+        client_name = channel_cache.get_client_name(user_id)
+        if client_name is None:
             service = ChatService(channel_id)
             await service.dispatch("bye", user_id, {})
 
