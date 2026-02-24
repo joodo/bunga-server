@@ -19,7 +19,11 @@ The backend core for **[bunga-player](https://github.com/joodo/bunga_player)**, 
 - **Framework**: Django / Channels
 - **Data Storage**: Redis, SQLite
 
-## 🚀 Getting Started (TODO)
+## 🚀 Getting Started
+
+### Prerequests
+
+[Redis](https://redis.io/docs/latest/operate/oss_and_stack/install/archive/install-redis/) and [uv](https://docs.astral.sh/uv/#installation) are required.
 
 ### Installation
 
@@ -28,36 +32,29 @@ The backend core for **[bunga-player](https://github.com/joodo/bunga_player)**, 
 ```bash
 git clone https://github.com/joodo/bunga-server.git
 cd bunga-server
-
 ```
 
-2. **Install dependencies:**
+2. **Configure Environment:**
+
+Create your local settings file from the template and update the required credentials (DB, Secret Keys, etc.):
 
 ```bash
-# If using npm
-npm install
-
+cp bunga/bunga/local_settings.template.py bunga/bunga/local_settings.py
+nano bunga/bunga/local_settings.py  # Fill in the required information
 ```
 
-3. **Environment Configuration:**
+3. **Deploy:**
    Create a `.env` file in the root directory:
 
-```env
-PORT=3000
-CORS_ORIGIN=http://localhost:5173
-# Add other variables here
-
+```bash
+chmod +x manage.sh
+./manage.sh deploy
 ```
 
 ### Running the Server
 
 ```bash
-# Development mode
-npm run dev
-
-# Production mode
-npm start
-
+./manage.sh start
 ```
 
 ## 🔌 API & WebSocket Events
