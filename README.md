@@ -85,8 +85,8 @@ See [Schema File](/bunga/server/chat/schemas.py) for more details.
 | Drift (Threshold) | Strategy            | Description                                                                |
 | ----------------- | ------------------- | -------------------------------------------------------------------------- |
 | `< 400ms`         | **Ignore**          | Minor drift ignored to prevent jitter.                                     |
-| `400ms - 2000ms`  | **Silent Catch-up** | Adjusts `playbackRate` to **0.95x** or **1.05x** until drift is `< 400ms`. |
-| `> 2000ms`        | **Hard Sync**       | Immediate `seek` to the server's current timestamp.                        |
+| `400ms - 4000ms`  | **Silent Catch-up** | Adjusts `playbackRate` to **0.95x** or **1.05x** until drift is `< 400ms`. |
+| `> 4000ms`        | **Hard Sync**       | Immediate `seek` to the server's current timestamp.                        |
 
 ### Client States
 
