@@ -6,6 +6,15 @@ from pathlib import Path
 
 from django.urls import reverse_lazy
 
+SECRET_KEY = None
+USE_DEBUG_TOOLBAR = False
+REDIS_HOST = {"host": "localhost", "port": 6379}
+try:
+    from .local_settings import *
+except ImportError:
+    print("File 'settings_local.py' is needed. See 'local_settings.template.py'.")
+    exit(1)
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -160,11 +169,11 @@ MEDIA_ROOT = BASE_DIR / "media"
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/0",
+        "LOCATION": f"redis://{REDIS_HOST['host']}:{REDIS_HOST['port']}/0",
     },
     "raw_redis": {  # 原生 Redis，用字符串
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
+        "LOCATION": f"redis://{REDIS_HOST['host']}:{REDIS_HOST['port']}/1",
         "OPTIONS": {
             "decode_responses": True,
         },
@@ -185,7 +194,7 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+            "hosts": [(REDIS_HOST["host"], REDIS_HOST["port"])],
         },
     },
 }
@@ -213,20 +222,11 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": False,
     "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
 }
 
 
-try:
-    from .local_settings import *
-
-    try:
-        if USE_DEBUG_TOOLBAR:
-            INTERNAL_IPS = ["127.0.0.1"]
-            INSTALLED_APPS += ["debug_toolbar"]
-            MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
-    except NameError:
-        print("no debug!!!")
-
-    SIMPLE_JWT["SIGNING_KEY"] = SECRET_KEY
-except ImportError:
-    pass
+if USE_DEBUG_TOOLBAR:
+    INTERNAL_IPS = ["127.0.0.1"]
+    INSTALLED_APPS += ["debug_toolbar"]
+    MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
