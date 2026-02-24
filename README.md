@@ -57,6 +57,13 @@ chmod +x manage.sh
 ./manage.sh start
 ```
 
+### Update
+
+```bash
+git pull
+./manage.sh deploy
+```
+
 ## 🔌 API & WebSocket Events
 
 ### Restful API
