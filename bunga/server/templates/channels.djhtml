@@ -61,7 +61,10 @@
                         <div class="mb-3">
                             {% bootstrap_label "编号" label_for="id" %}
                             <div class="input-group mb-3">
-                                <input id="new-channel-id" type="text" class="form-control" name="group_id">
+                                <input id="new-channel-id"
+                                       type="text"
+                                       class="form-control"
+                                       name="channel_id">
                                 <button class="btn btn-outline-secondary" type="button" onclick="randomId()">随机</button>
                             </div>
                         </div>
