@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Configuration ---
-APP_NAME="bunga_server"
+APP_NAME="bunga"
 WEB_PID="web.pid"
 WORKER_PID="worker.pid"
 
@@ -52,8 +52,8 @@ deploy_project() {
 
     # --- Pre-deployment Check ---
     # Check if local_settings.py exists in the project subdirectory
-    LOCAL_SETTINGS="bunga/bunga/local_settings.py"
-    TEMPLATE_SETTINGS="bunga/bunga/local_settings.template.py"
+    LOCAL_SETTINGS="bunga/local_settings.py"
+    TEMPLATE_SETTINGS="bunga/local_settings.template.py"
 
     if [ ! -f "$LOCAL_SETTINGS" ]; then
         echo "--------------------------------------------------------"

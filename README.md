@@ -31,7 +31,7 @@ The backend core for **[bunga-player](https://github.com/joodo/bunga_player)**, 
 
 ```bash
 git clone https://github.com/joodo/bunga-server.git
-cd bunga-server
+cd bunga-server/bunga
 ```
 
 2. **Configure Environment:**
@@ -39,8 +39,8 @@ cd bunga-server
 Create your local settings file from the template and update the required credentials (DB, Secret Keys, etc.):
 
 ```bash
-cp bunga/bunga/local_settings.template.py bunga/bunga/local_settings.py
-nano bunga/bunga/local_settings.py  # Fill in the required information
+cp bunga/local_settings.template.py bunga/bunga/local_settings.py
+nano bunga/local_settings.py  # Fill in the required information
 ```
 
 3. **Deploy:**

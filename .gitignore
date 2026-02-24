@@ -171,3 +171,8 @@ bunga/staticfiles/
 
 # Redis database files
 dump.rdb
+
+# Deploy
+*.log
+*.pid
+bunga/.initialized
