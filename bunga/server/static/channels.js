@@ -1,11 +1,11 @@
-document.getElementById("update-chat-config-btn").onclick = function () {
+/*document.getElementById("update-chat-config-btn").onclick = function () {
   const form = document.getElementById("chat-config-form");
   form.submitFunc().then((success) => {
     if (success) {
       $("#channels-table").bootstrapTable("refresh");
     }
   });
-};
+};*/
 document.getElementById("create-channel-btn").onclick = function () {
   const form = document.getElementById("channel-form");
   form.submitFunc().then((success) => {
