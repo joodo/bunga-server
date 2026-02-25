@@ -13,6 +13,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from utils.log import logger
+from server.utils import cached_function
 
 
 class Gallery(viewsets.ViewSet):
@@ -113,12 +114,12 @@ class Gallery(viewsets.ViewSet):
             if not pk:
                 raise Exception("Media pk is required.")
 
-            return Response(asdict(linker.detail(pk)))
+            return Response(_detail(linker, pk))
         except Exception as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["GET"])
-    def source(self, request: Request, pk: str | None = None) -> Response:
+    def sources(self, request: Request, pk: str | None = None) -> Response:
         try:
             linker_id = request.query_params.get("linker")
             if not linker_id:
@@ -135,7 +136,7 @@ class Gallery(viewsets.ViewSet):
                 raise Exception("Media pk is required.")
 
             sources = linker.sources(pk, ep_id)
-            return Response({"sources": [asdict(s) for s in sources]})
+            return Response({"sources": _sources(linker, pk, ep_id)})
         except Exception as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
@@ -154,3 +155,14 @@ class Gallery(viewsets.ViewSet):
 
         module = importlib.import_module("src")
         return [cls for _, cls in inspect.getmembers(module, inspect.isclass)]
+
+
+@cached_function(lambda linker, key: f"gallery:{linker.__name__}:{key}")
+def _detail(linker, key) -> dict:
+    return asdict(linker.detail(key))
+
+
+@cached_function(lambda linker, key, ep_id: f"gallery:{linker.__name__}:{key}:{ep_id}")
+def _sources(linker, key, ep_id) -> list[dict]:
+    sources = linker.sources(key, ep_id)
+    return [asdict(s) for s in sources]
