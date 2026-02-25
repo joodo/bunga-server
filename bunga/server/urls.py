@@ -40,7 +40,6 @@ api_patterns = [
     path("bilibili/info", api.bilibili_info, name="bilibili-info"),
     path("alist/info", api.alist_info, name="alist_info"),
     path("alist/user-info", api.alist_user_info, name="alist-user-info"),
-    path("pull-linkers/", api.pull_linkers, name="pull-linkers"),
     path("chat/config", api.IMKey.as_view(), name="chat-config"),
     path("voice/config", api.VoiceKey.as_view(), name="voice-config"),
     path("monitor/logs", api.monitor_logs, name="monitor-logs"),
@@ -71,6 +70,7 @@ view_set_router.register(
     basename="video-record",
 )
 view_set_router.register(r"client-logs", api.ClientLogViewSet, basename="client-log")
+view_set_router.register(r"gallery", api.Gallery, basename="gallery")
 api_patterns += view_set_router.urls
 
 urlpatterns = [

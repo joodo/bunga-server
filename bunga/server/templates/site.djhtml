@@ -64,9 +64,37 @@
             </div>
         </div>
     </div>
+    <div class="card mb-3">
+        <div class="card-header">
+            媒体库（<a href="https://github.com/joodo/bunga-link">Github</a>）
+        </div>
+        <div class="card-body" id="gallery-linkers">
+            <div class="mb-2">
+                <div class="d-flex align-items-center mb-2">
+                    <strong>最后 Commit 信息：</strong>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary ms-2"
+                            id="gallery-pull-btn">拉取</button>
+                </div>
+                <div class="border rounded bg-light p-2 mb-1">
+                    <span id="gallery-last-commit">
+                        <span class="text-monospace">--</span>
+                    </span>
+                </div>
+            </div>
+            <div>
+                <strong>Linkers：</strong>
+                <ul class="list-group mt-2" id="gallery-linker-list">
+                    <!-- Linker items will be injected here -->
+                </ul>
+            </div>
+        </div>
+    </div>
     <script type="module">
     window.URLS = {
         "alist:info": "{% url 'api:alist_info' %}",
+        "gallery:linkers": "{% url 'api:gallery-linkers' %}",
+        "gallery:pull": "{% url 'api:gallery-pull-linkers' %}",
     }
     </script>
     {% load static %}

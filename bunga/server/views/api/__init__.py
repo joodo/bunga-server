@@ -3,3 +3,4 @@ from .bilibili import *
 from .channel import *
 from .ops import *
 from .site import *
+from .gallery import *
