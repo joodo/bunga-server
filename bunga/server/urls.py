@@ -9,8 +9,10 @@ from rest_framework_simplejwt.views import (
     token_verify,
 )
 
+from .views import api
+
 from .chat import consumers
-from .views import pages, dashboard, api
+from .views import pages, dashboard
 
 dashboard_patterns = [
     path(
