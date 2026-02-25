@@ -17,8 +17,6 @@ from server.utils import cached_function
 
 
 class Gallery(viewsets.ViewSet):
-    permission_classes = [AllowAny]
-
     @action(
         url_path="pull-linkers",
         detail=False,
