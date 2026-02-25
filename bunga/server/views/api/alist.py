@@ -20,8 +20,8 @@ class AListAccountViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
 
 
-@permission_classes([IsAdminUser])
 @api_view(["GET"])
+@permission_classes([IsAdminUser])
 def alist_info(request: Request) -> Response:
     host = request.query_params.get("host")
     if not host:
@@ -61,8 +61,8 @@ def alist_info(request: Request) -> Response:
     return Response(result)
 
 
-@permission_classes([IsAdminUser])
 @api_view(["GET"])
+@permission_classes([IsAdminUser])
 def alist_user_info(request: Request) -> Response:
     host = models.AListHost.get_solo().host
     username = request.query_params.get("username")

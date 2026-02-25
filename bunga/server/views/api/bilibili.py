@@ -33,8 +33,8 @@ class BiliAccountViewSet(viewsets.ModelViewSet):
         return instance
 
 
-@permission_classes([IsAdminUser])
 @api_view(["GET"])
+@permission_classes([IsAdminUser])
 def bilibili_qr(request: Request) -> Response:
     response = requests.get(
         "https://passport.bilibili.com/x/passport-login/web/qrcode/generate",
@@ -55,8 +55,8 @@ def bilibili_qr(request: Request) -> Response:
     return Response(data["data"])
 
 
-@permission_classes([IsAdminUser])
 @api_view(["GET"])
+@permission_classes([IsAdminUser])
 def bilibili_pull(request: Request) -> Response:
     qrcode_key = request.query_params.get("key")
     response = requests.get(
@@ -85,8 +85,8 @@ def bilibili_pull(request: Request) -> Response:
     return Response(data)
 
 
-@permission_classes([IsAdminUser])
 @api_view(["GET"])
+@permission_classes([IsAdminUser])
 def bilibili_info(request: Request) -> Response:
     sess = request.query_params.get("sess")
     if not sess:
