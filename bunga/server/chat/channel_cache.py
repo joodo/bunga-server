@@ -145,6 +145,10 @@ class ChannelCache(metaclass=MultitonMeta):
     def is_watcher(self, user_id: str) -> bool:
         return self.redis.hexists(self.keys.watchers.raw, user_id)
 
+    @property
+    def has_watcher(self):
+        return self.redis.hlen(self.keys.watchers.raw) > 0
+
     # Buffering watchers
     @property
     def ready_watchers(self) -> list[str]:

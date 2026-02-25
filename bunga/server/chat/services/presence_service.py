@@ -62,10 +62,14 @@ class ChannelPresenceService(metaclass=MultitonMeta):
         if info is None:
             return
 
-        await broadcast_message(channel_id=self.channel_id, code="bye", sender=info)
-        if (
-            self.channel_cache.channel_status == ChannelStatus.WAITING
-            and self.channel_cache.is_all_watchers_ready
-        ):
-            # If leaving user is the last buffering one, start playback
-            self.state.translate_to(ChannelStatus.PLAYING)
+        if self.channel_cache.has_watcher:
+            await broadcast_message(channel_id=self.channel_id, code="bye", sender=info)
+            if (
+                self.channel_cache.channel_status == ChannelStatus.WAITING
+                and self.channel_cache.is_all_watchers_ready
+            ):
+                # If leaving user is the last buffering one, start playback
+                self.state.translate_to(ChannelStatus.PLAYING)
+        else:
+            # Pause playback if no watcher left
+            self.state.translate_to(ChannelStatus.PAUSED)
