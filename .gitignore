@@ -176,3 +176,6 @@ dump.rdb
 *.log
 *.pid
 bunga/.initialized
+
+# VS Code
+.vscode
