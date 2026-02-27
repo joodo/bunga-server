@@ -67,11 +67,11 @@ class ChannelPlaybackService(metaclass=MultitonMeta):
                 )
             case ChannelStatus.PLAYING | ChannelStatus.WAITING:
                 self.channel_cache.set_position(position)
-                SeekCountdownManager.reset(self.channel_id, self._evaluate_to_play())
+                SeekCountdownManager.reset(self.channel_id, self._sync_after_seek())
                 self.state.translate_to(ChannelStatus.SEEKING_DURING_PLAYBACK)
             case ChannelStatus.SEEKING_DURING_PLAYBACK:
                 self.channel_cache.set_position(position)
-                SeekCountdownManager.reset(self.channel_id, self._evaluate_to_play())
+                SeekCountdownManager.reset(self.channel_id, self._sync_after_seek())
         await self.broadcast(excludes=[sender])
 
     async def finish_playing(self) -> None:
@@ -89,11 +89,12 @@ class ChannelPlaybackService(metaclass=MultitonMeta):
             excludes=[u.id for u in excludes],
         )
 
+    async def _sync_after_seek(self) -> None:
+        position = self.channel_cache.play_status.position
+        self.channel_cache.set_position(position + timedelta(milliseconds=500))
+        await self._evaluate_to_play()
+
     async def _evaluate_to_play(self) -> None:
-        target_status = (
-            ChannelStatus.PLAYING
-            if self.channel_cache.is_all_watchers_ready
-            else ChannelStatus.WAITING
-        )
-        self.state.translate_to(target_status)
-        await self.broadcast()
+        if self.channel_cache.is_all_watchers_ready:
+            self.state.translate_to(ChannelStatus.PLAYING)
+            await self.broadcast()
