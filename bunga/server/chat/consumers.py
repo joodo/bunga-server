@@ -6,13 +6,11 @@ from typing import Any
 
 from django.contrib.auth import get_user_model
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
-from rest_framework_simplejwt.tokens import AccessToken
-from rest_framework_simplejwt.exceptions import TokenError
 
 from server.models import Channel
 from utils.log import logger
 from .services import ChatService
-from .channel_cache import ChannelCache
+from .channel_cache import ChannelCache, UserInfo
 
 
 User = get_user_model()
@@ -34,6 +32,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
         self.room_group_name = f"room_{self.channel.channel_id}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+
+        await self._send_message_to_client("remind-me", asdict(UserInfo.server))
 
     async def disconnect(self, code):
         room_group_name = getattr(self, "room_group_name", None)

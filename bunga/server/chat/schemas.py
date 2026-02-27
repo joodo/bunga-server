@@ -21,6 +21,11 @@ class JoinInSchema:
 
 
 @dataclass
+class IAmSchema:
+    info: UserInfo
+
+
+@dataclass
 class HereAreSchema:
     watchers: list[UserInfo]
     buffering: list[str]
@@ -104,6 +109,7 @@ PROTOCOL_MAP = {
     "whats-on": None,
     "now-playing": NowPlayingSchema,
     "join-in": JoinInSchema,
+    "i-am": IAmSchema,
     "play-at": PlayAtSchema,
     "start-projection": StartProjectionSchema,
     "here-are": HereAreSchema,

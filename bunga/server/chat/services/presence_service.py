@@ -24,7 +24,9 @@ class ChannelPresenceService(metaclass=MultitonMeta):
 
     async def join_user(self, user: UserInfo) -> None:
         self.channel_cache.upsert_watcher(user)
-        await broadcast_message(channel_id=self.channel_id, code="aloha", sender=user)
+        await broadcast_message(
+            channel_id=self.channel_id, code="aloha", sender=user, excludes=[user.id]
+        )
 
         self.state.translate_to(ChannelStatus.PAUSED)
         await self.playback.broadcast()

@@ -46,6 +46,7 @@ class ChatService(metaclass=MultitonMeta):
         METHOD_MAP = {
             "whats-on": self._handle_whats_on,
             "join-in": self._handle_join_in,
+            "i-am": self._handle_i_am,
             "start-projection": self._handle_start_projection,
             "bye": self._handle_bye,
             "buffer-state-changed": self._handle_buffer_state_changed,
@@ -118,6 +119,14 @@ class ChatService(metaclass=MultitonMeta):
                 receiver_id=sender_id,
                 data=StartProjectionSchema.from_channel_cache(self.channel_cache),
             )
+
+    async def _handle_i_am(
+        self,
+        sender_id: str,
+        schema_data: IAmSchema,
+    ) -> None:
+        # Join user into channel, tell others
+        await self.presence.join_user(schema_data.info)
 
     @_require_watcher
     async def _handle_start_projection(
