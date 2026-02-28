@@ -50,7 +50,10 @@ class ChannelPlaybackService(metaclass=MultitonMeta):
                     self.channel_cache.set_play(False)
 
     async def on_play_request(self):
-        if self.channel_cache.channel_status != ChannelStatus.PAUSED:
+        if self.channel_cache.channel_status not in (
+            ChannelStatus.PAUSED,
+            ChannelStatus.PLAYING,  # Send play command anyway
+        ):
             return
         await self._evaluate_to_play()
 
