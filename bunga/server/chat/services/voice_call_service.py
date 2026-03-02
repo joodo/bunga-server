@@ -12,7 +12,7 @@ class ChannelVoiceCallService(metaclass=MultitonMeta):
         self.channel_cache = ChannelCache(channel_id)
 
     async def on_call(self, caller_id: str) -> None:
-        if self.channel_cache.has_pending_call:
+        if self.channel_cache.has_pending_call or self.channel_cache.is_talking:
             await self.on_accept()
         else:
             if not self.channel_cache.init_call_pending_ids(caller_id):
@@ -44,6 +44,12 @@ class ChannelVoiceCallService(metaclass=MultitonMeta):
             code="call",
             data=CallSchema(CallAction.CANCEL),
         )
+
+    def on_talk_start(self, talker_id: str) -> None:
+        self.channel_cache.add_talking_id(talker_id)
+
+    def on_talk_end(self, talker_id: str) -> None:
+        self.channel_cache.remove_talking_id(talker_id)
 
     async def _all_call_rejected(self) -> None:
         if self.channel_cache.has_pending_call:

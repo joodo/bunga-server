@@ -105,6 +105,16 @@ class CallSchema:
     action: CallAction
 
 
+class TalkStatus(str, Enum):
+    START = "start"
+    END = "end"
+
+
+@dataclass
+class TalkStatusSchema:
+    status: TalkStatus
+
+
 PROTOCOL_MAP = {
     "whats-on": None,
     "now-playing": NowPlayingSchema,
@@ -119,5 +129,6 @@ PROTOCOL_MAP = {
     "seek": SeekSchema,
     "bye": None,
     "call": CallSchema,
+    "talk-status": TalkStatusSchema,
     "play-finished": None,
 }

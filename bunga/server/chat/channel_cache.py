@@ -271,6 +271,23 @@ class ChannelCache(metaclass=MultitonMeta):
     def has_pending_call(self) -> bool:
         return self.redis.scard(self.keys.call_pending_ids.raw) > 0
 
+    def add_talking_id(self, user_id: str) -> None:
+        self.redis.sadd(self.keys.talking_ids.raw, user_id)
+
+    def remove_talking_id(self, user_id: str) -> None:
+        self.redis.srem(self.keys.talking_ids.raw, user_id)
+
+    @property
+    def is_talking(self) -> bool:
+        # Clear stale ids
+        talk_ids = self.redis.smembers(self.keys.talking_ids.raw)
+        watcher_ids = self.watcher_ids
+        for id in talk_ids:
+            if id not in watcher_ids:
+                self.remove_talking_id(id)
+
+        return self.redis.scard(self.keys.talking_ids.raw) > 0
+
     # Utils
     def reset(self) -> None:
         self.clean_projection()
@@ -278,6 +295,7 @@ class ChannelCache(metaclass=MultitonMeta):
         self.redis.delete(self.keys.watchers.raw)
         self.redis.delete(self.keys.ready_watchers.raw)
         self.redis.delete(self.keys.call_pending_ids.raw)
+        self.redis.delete(self.keys.talking_ids.raw)
 
     class Keys:
         def __init__(self, channel_id: str):
@@ -323,6 +341,10 @@ class ChannelCache(metaclass=MultitonMeta):
         @property
         def call_pending_ids(self):
             return self._Key(f"{self.prefix}:call_pending_ids")
+
+        @property
+        def talking_ids(self):
+            return self._Key(f"{self.prefix}:talking_ids")
 
 
 class SeekCountdownManager:

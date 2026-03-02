@@ -1,5 +1,3 @@
-# PEP-8
-
 import functools
 from typing import Callable, Awaitable, Any
 from dacite import Config, from_dict
@@ -37,12 +35,7 @@ class ChatService(metaclass=MultitonMeta):
 
         return wrapper
 
-    async def dispatch(
-        self,
-        code: str,
-        sender_id: str,
-        json_data: dict,
-    ) -> None:
+    async def dispatch(self, code: str, sender_id: str, json_data: dict) -> None:
         METHOD_MAP = {
             "whats-on": self._handle_whats_on,
             "join-in": self._handle_join_in,
@@ -54,6 +47,7 @@ class ChatService(metaclass=MultitonMeta):
             "pause": self._handle_pause,
             "seek": self._handle_seek,
             "call": self._handle_call,
+            "talk-status": self._handle_talk_status,
             "play-finished": self._handle_play_finished,
         }
         handler = METHOD_MAP.get(code)
@@ -72,11 +66,7 @@ class ChatService(metaclass=MultitonMeta):
 
         return await handler(sender_id, schema_data)
 
-    async def _handle_whats_on(
-        self,
-        sender_id: str,
-        schema_data: None,
-    ) -> None:
+    async def _handle_whats_on(self, sender_id: str, _: None) -> None:
         projection = self.channel_cache.current_projection
         if projection is None:
             return
@@ -88,11 +78,7 @@ class ChatService(metaclass=MultitonMeta):
             data=NowPlayingSchema(record=projection.record, sharer=projection.sharer),
         )
 
-    async def _handle_join_in(
-        self,
-        sender_id: str,
-        schema_data: JoinInSchema,
-    ) -> None:
+    async def _handle_join_in(self, sender_id: str, schema_data: JoinInSchema) -> None:
         # Send current watcher list to client
         watcher_list = self.channel_cache.watcher_list
         buffering_ids = self.channel_cache.buffering_watchers
@@ -120,19 +106,13 @@ class ChatService(metaclass=MultitonMeta):
                 data=StartProjectionSchema.from_channel_cache(self.channel_cache),
             )
 
-    async def _handle_i_am(
-        self,
-        sender_id: str,
-        schema_data: IAmSchema,
-    ) -> None:
+    async def _handle_i_am(self, _: str, schema_data: IAmSchema) -> None:
         # Join user into channel, tell others
         await self.presence.join_user(schema_data.info)
 
     @_require_watcher
     async def _handle_start_projection(
-        self,
-        sender: UserInfo,
-        schema_data: StartProjectionSchema,
+        self, sender: UserInfo, schema_data: StartProjectionSchema
     ) -> None:
         current = self.channel_cache.current_projection
         if (
@@ -154,49 +134,27 @@ class ChatService(metaclass=MultitonMeta):
 
     @_require_watcher
     async def _handle_buffer_state_changed(
-        self,
-        sender: UserInfo,
-        schema_data: BufferStateChangedSchema,
+        self, sender: UserInfo, schema_data: BufferStateChangedSchema
     ) -> None:
         await self.playback.update_buffer_state(
             sender=sender, is_buffering=schema_data.is_buffering
         )
 
-    @_require_watcher
-    async def _handle_play(
-        self,
-        sender: UserInfo,
-        schema_data: None,
-    ) -> None:
+    async def _handle_play(self, _: str, __: None) -> None:
         await self.playback.on_play_request()
 
     @_require_watcher
-    async def _handle_pause(
-        self,
-        sender: UserInfo,
-        schema_data: PauseSchema,
-    ) -> None:
+    async def _handle_pause(self, sender: UserInfo, schema_data: PauseSchema) -> None:
         await self.playback.on_pause_request(sender, schema_data.delta)
 
     @_require_watcher
-    async def _handle_seek(
-        self,
-        sender: UserInfo,
-        schema_data: SeekSchema,
-    ) -> None:
+    async def _handle_seek(self, sender: UserInfo, schema_data: SeekSchema) -> None:
         await self.playback.seek_to(sender, schema_data.delta)
 
     async def _handle_play_finished(self, *_, **__) -> None:
         await self.playback.finish_playing()
 
-    @_require_watcher
-    async def _handle_call(
-        self,
-        sender: UserInfo,
-        schema_data: CallSchema,
-    ) -> None:
-        sender_id = sender.id
-
+    async def _handle_call(self, sender_id: str, schema_data: CallSchema) -> None:
         match schema_data.action:
             case CallAction.CALL:
                 await self.voice_call.on_call(sender_id)
@@ -206,3 +164,10 @@ class ChatService(metaclass=MultitonMeta):
                 await self.voice_call.on_reject(sender_id)
             case CallAction.CANCEL:
                 await self.voice_call.on_cancel(sender_id)
+
+    async def _handle_talk_status(self, sender_id: str, schema_data: TalkStatusSchema):
+        match schema_data.status:
+            case TalkStatus.START:
+                self.voice_call.on_talk_start(sender_id)
+            case TalkStatus.END:
+                self.voice_call.on_talk_end(sender_id)
