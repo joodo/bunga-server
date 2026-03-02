@@ -39,14 +39,14 @@ function fileFormatter(value, row) {
 
 function downloadFormatter(value, row) {
     if (row.file) {
-        return `<button class="btn btn-sm btn-primary" onclick="downloadFile('${row.file}', '${row.download_filename}')">下载</button>
+        return `<button class="btn btn-sm btn-primary" onclick="downloadFile('${row.id}', '${row.download_filename}')">下载</button>
                 <button class="btn btn-sm btn-danger ms-2" onclick="deleteLog(${row.id})">删除</button>`;
     }
     return '-';
 }
 
-function downloadFile(fileUrl, filename) {
-    fetch(fileUrl)
+function downloadFile(logId, filename) {
+    fetch(`/api/client-logs/${logId}/download/`)
         .then(response => response.blob())
         .then(blob => {
             const url = window.URL.createObjectURL(blob);

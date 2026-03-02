@@ -1,8 +1,9 @@
 from dataclasses import asdict
 
 from asgiref.sync import async_to_sync
+from django.http import FileResponse
 from rest_framework import viewsets
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
@@ -24,6 +25,13 @@ class ClientLogViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(uploader=self.request.user)
+
+    @action(detail=True, methods=["get"], permission_classes=[IsAdminUser])
+    def download(self, request, pk=None):
+        log = self.get_object()
+        response = FileResponse(log.file.open("rb"))
+        response["Content-Disposition"] = "attachment"
+        return response
 
 
 @api_view(["GET"])
