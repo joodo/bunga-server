@@ -29,6 +29,7 @@ class IAmSchema:
 class HereAreSchema:
     watchers: list[UserInfo]
     buffering: list[str]
+    talking: list[str]
 
 
 @dataclass

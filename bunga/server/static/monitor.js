@@ -82,7 +82,6 @@ window.onRefreshCache = async function () {
     ${createRow("频道状态", data.channel_status)}
     ${createRow("观看者数", data.watcher_count)}
     ${createRow("准备就绪", data.ready_watchers.length)}
-    ${createRow("缓冲中", data.buffering_watchers.length)}
     ${createRow("待处理呼叫", data.has_pending_call ? "是" : "否")}
   `;
 
@@ -122,12 +121,17 @@ window.onRefreshCache = async function () {
   if (data.watcher_list && data.watcher_list.length > 0) {
     let watchers = "";
     for (const w of data.watcher_list) {
-      let status = "未知";
+      let status = "";
       if (data.ready_watchers.includes(w.id)) {
         status = "就绪";
-      } else if (data.buffering_watchers.includes(w.id)) {
+      } else {
         status = "缓冲";
       }
+
+      if (data.talking_watchers.includes(w.id)) {
+        status += ", 通话中";
+      }
+
       watchers += `
         <tr>
           <td>${w.id}</td>

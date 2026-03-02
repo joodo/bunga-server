@@ -62,8 +62,8 @@ def monitor_cache(request, channel_id: str):
             "current_projection": None,
             "watcher_list": [asdict(w) for w in channel_cache.watcher_list],
             "watcher_count": len(channel_cache.watcher_list),
-            "ready_watchers": list(channel_cache.ready_watchers),
-            "buffering_watchers": list(channel_cache.buffering_watchers),
+            "ready_watchers": list(channel_cache.ready_ids),
+            "talking_watchers": list(channel_cache.talking_ids),
             "has_pending_call": channel_cache.has_pending_call,
             "play_status": (
                 {

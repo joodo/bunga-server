@@ -80,15 +80,14 @@ class ChatService(metaclass=MultitonMeta):
 
     async def _handle_join_in(self, sender_id: str, schema_data: JoinInSchema) -> None:
         # Send current watcher list to client
-        watcher_list = self.channel_cache.watcher_list
-        buffering_ids = self.channel_cache.buffering_watchers
         await send_message(
             self.channel_id,
             "here-are",
             receiver_id=sender_id,
             data=HereAreSchema(
-                watchers=watcher_list,
-                buffering=buffering_ids,
+                watchers=self.channel_cache.watcher_list,
+                buffering=self.channel_cache.buffering_ids,
+                talking=list(self.channel_cache.talking_ids),
             ),
         )
 

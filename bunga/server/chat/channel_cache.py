@@ -151,13 +151,13 @@ class ChannelCache(metaclass=MultitonMeta):
 
     # Buffering watchers
     @property
-    def ready_watchers(self) -> list[str]:
+    def ready_ids(self) -> set[str]:
         return self.redis.smembers(self.keys.ready_watchers.raw)
 
     @property
-    def buffering_watchers(self) -> list[str]:
+    def buffering_ids(self) -> list[str]:
         watcher_ids = self.watcher_ids
-        ready_ids = self.ready_watchers
+        ready_ids = self.ready_ids
         return [id for id in watcher_ids if id not in ready_ids]
 
     def reset_all_watchers_to_buffering(self) -> None:
@@ -174,7 +174,7 @@ class ChannelCache(metaclass=MultitonMeta):
 
     @property
     def is_all_watchers_ready(self) -> bool:
-        return len(self.buffering_watchers) == 0
+        return len(self.buffering_ids) == 0
 
     # Projection
     @property
@@ -278,11 +278,14 @@ class ChannelCache(metaclass=MultitonMeta):
         self.redis.srem(self.keys.talking_ids.raw, user_id)
 
     @property
+    def talking_ids(self) -> set[str]:
+        return self.redis.smembers(self.keys.talking_ids.raw)
+
+    @property
     def is_talking(self) -> bool:
         # Clear stale ids
-        talk_ids = self.redis.smembers(self.keys.talking_ids.raw)
         watcher_ids = self.watcher_ids
-        for id in talk_ids:
+        for id in self.talking_ids:
             if id not in watcher_ids:
                 self.remove_talking_id(id)
 
