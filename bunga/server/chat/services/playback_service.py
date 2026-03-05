@@ -60,7 +60,7 @@ class ChannelPlaybackService(metaclass=MultitonMeta):
     async def on_pause_request(self, sender: UserInfo, position: timedelta):
         self.channel_cache.set_position(position)
         self.state.translate_to(ChannelStatus.PAUSED)
-        await self.broadcast(excludes=[sender])
+        await self.broadcast(excludes=[sender.id])
 
     async def seek_to(self, sender: UserInfo, position: timedelta) -> None:
         match self.channel_cache.channel_status:
@@ -75,7 +75,7 @@ class ChannelPlaybackService(metaclass=MultitonMeta):
             case ChannelStatus.SEEKING_DURING_PLAYBACK:
                 self.channel_cache.set_position(position)
                 SeekCountdownManager.reset(self.channel_id, self._sync_after_seek())
-        await self.broadcast(excludes=[sender])
+        await self.broadcast(excludes=[sender.id])
 
     async def finish_playing(self) -> None:
         # Play finished, back to position 0, and pause
@@ -83,13 +83,13 @@ class ChannelPlaybackService(metaclass=MultitonMeta):
         self.state.translate_to(ChannelStatus.PAUSED)
         await self.broadcast()
 
-    async def broadcast(self, *, excludes: list[UserInfo] = []) -> None:
+    async def broadcast(self, *, excludes: list[str] = []) -> None:
         play_status = self.channel_cache.play_status
         await broadcast_message(
             channel_id=self.channel_id,
             code="play-at",
             data=PlayAtSchema.from_play_status(play_status),
-            excludes=[u.id for u in excludes],
+            excludes=excludes,
         )
 
     async def _sync_after_seek(self) -> None:

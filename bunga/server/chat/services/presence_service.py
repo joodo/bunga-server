@@ -29,7 +29,7 @@ class ChannelPresenceService(metaclass=MultitonMeta):
         )
 
         self.state.translate_to(ChannelStatus.PAUSED)
-        await self.playback.broadcast()
+        await self.playback.broadcast(excludes=[user.id])
 
     async def apply_new_projection(
         self, sharer: UserInfo, data: StartProjectionSchema
