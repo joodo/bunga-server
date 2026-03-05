@@ -33,9 +33,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         self.room_group_name = f"room_{self.channel.channel_id}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
 
-        if not self.channel_cache.is_watcher(self.user_id):
-            await self._send_message_to_client("remind-me", asdict(UserInfo.server))
-
     async def disconnect(self, code):
         room_group_name = getattr(self, "room_group_name", None)
         if room_group_name is not None:
