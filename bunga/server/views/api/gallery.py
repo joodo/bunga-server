@@ -7,6 +7,7 @@ import sys
 from typing import override
 
 
+from django.core.cache import cache as Cache
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser
@@ -133,42 +134,31 @@ class Gallery(viewsets.ViewSet):
 
     @override
     def retrieve(self, request: Request, pk: str | None = None) -> Response:
-        try:
-            linker_id = request.query_params.get("linker")
-            if not linker_id:
-                raise Exception("linker' query param is required.")
-            linker = self._find_class(linker_id)
-            if not linker:
-                raise Exception("No linker found.")
+        linker_id = request.query_params.get("linker")
+        if not linker_id:
+            raise Exception("linker' query param is required.")
 
-            if not pk:
-                raise Exception("Media pk is required.")
+        if not pk:
+            raise Exception("Media pk is required.")
 
-            return Response(_detail(linker, pk))
-        except Exception as e:
-            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+        detail = self._get_detail(linker_id, pk)
+        return Response(asdict(detail))
 
     @action(detail=True, methods=["GET"])
     def sources(self, request: Request, pk: str | None = None) -> Response:
-        try:
-            linker_id = request.query_params.get("linker")
-            if not linker_id:
-                raise Exception("linker' query param is required.")
-            linker = self._find_class(linker_id)
-            if not linker:
-                raise Exception("No linker found.")
+        linker_id = request.query_params.get("linker")
+        if not linker_id:
+            raise Exception("linker' query param is required.")
 
-            ep_id = request.query_params.get("ep")
-            if not ep_id:
-                raise Exception("linker' query param is required.")
+        if not pk:
+            raise Exception("Media pk is required.")
 
-            if not pk:
-                raise Exception("Media pk is required.")
+        ep_id = request.query_params.get("ep")
+        if not ep_id:
+            raise Exception("linker' query param is required.")
 
-            sources = linker.sources(pk, ep_id)
-            return Response({"sources": _sources(linker, pk, ep_id)})
-        except Exception as e:
-            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+        detail = self._get_detail(linker_id, pk)
+        return Response({"sources": _sources(detail, ep_id)})
 
     def _find_class(self, id: str) -> type | None:
         classes = self._all_linker_classes()
@@ -186,13 +176,25 @@ class Gallery(viewsets.ViewSet):
         module = importlib.import_module("src")
         return [cls for _, cls in inspect.getmembers(module, inspect.isclass)]
 
+    def _get_detail(self, linker_id: str, key: str):
+        cache_key = f"gallery:{linker_id}:{key}"
+        try:
+            cached = Cache.get(cache_key)
+        except Exception:
+            cached = None
+        if cached:
+            return cached
 
-@cached_function(lambda linker, key: f"gallery:{linker.__name__}:{key}")
-def _detail(linker, key) -> dict:
-    return asdict(linker.detail(key))
+        linker = self._find_class(linker_id)
+        if not linker:
+            raise Exception("No linker found.")
+
+        detail = linker.detail(key)
+        Cache.set(cache_key, detail, timeout=5 * 24 * 60 * 60)
+        return detail
 
 
-@cached_function(lambda linker, key, ep_id: f"gallery:{linker.__name__}:{key}:{ep_id}")
-def _sources(linker, key, ep_id) -> list[dict]:
-    sources = linker.sources(key, ep_id)
+@cached_function(lambda detail, ep_id: f"gallery:{detail.origin}:{ep_id}")
+def _sources(detail, ep_id: str) -> list[dict]:
+    sources = detail.fetch_sources(ep_id)
     return [asdict(s) for s in sources]
