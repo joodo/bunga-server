@@ -95,6 +95,7 @@
         "alist:info": "{% url 'api:alist_info' %}",
         "gallery:linkers": "{% url 'api:gallery-linkers' %}",
         "gallery:pull": "{% url 'api:gallery-pull-linkers' %}",
+        "gallery:set-linker-enabled": "/api/gallery/set-linker-enabled/",
     }
     </script>
     {% load static %}

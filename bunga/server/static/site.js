@@ -74,8 +74,43 @@ async function fetchMediaLibLinkers() {
       const li = document.createElement("li");
       li.className =
         "list-group-item d-flex justify-content-between align-items-center";
-      li.innerHTML = `<span><strong>${linker.name}</strong> <a href='${linker.url}' target='_blank' rel='noopener'>${linker.url}</a></span><span class='badge bg-secondary'>${linker.id}</span>`;
+      li.innerHTML = `
+        <span>
+          <strong>${linker.name}</strong>
+          <a href='${linker.url}' target='_blank' rel='noopener'>${linker.url}</a>
+        </span>
+        <span class='badge bg-secondary mx-2'>${linker.id}</span>
+        <div class="form-check form-switch m-0">
+          <input class="form-check-input gallery-linker-switch" type="checkbox" id="linker-switch-${linker.id}" data-linker-id="${linker.id}" ${linker.enabled ? "checked" : ""}>
+          <label class="form-check-label" for="linker-switch-${linker.id}">${linker.enabled ? "启用" : "禁用"}</label>
+        </div>
+      `;
       linkerList.appendChild(li);
+    });
+    linkerList.querySelectorAll(".gallery-linker-switch").forEach((el) => {
+      el.addEventListener("change", async function () {
+        const linkerId = this.getAttribute("data-linker-id");
+        const enabled = this.checked;
+        const csrftoken = $(`[name=csrfmiddlewaretoken]`).val();
+        await fetch(
+          window.URLS["gallery:set-linker-enabled"] ||
+            "/api/gallery/set-linker-enabled/",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": csrftoken,
+              mode: "same-origin",
+            },
+            body: JSON.stringify({ linker_id: linkerId, enabled }),
+          },
+        );
+        // 更新label
+        const label = linkerList.querySelector(
+          `label[for='linker-switch-${linkerId}']`,
+        );
+        if (label) label.textContent = enabled ? "启用" : "禁用";
+      });
     });
   }
 }

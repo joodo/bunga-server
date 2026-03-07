@@ -6,11 +6,14 @@ import subprocess
 import sys
 from typing import override
 
+
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.request import Request
 from rest_framework.response import Response
+
+from server import models, serializers
 
 from utils.log import logger
 from server.utils import cached_function
@@ -77,9 +80,32 @@ class Gallery(viewsets.ViewSet):
         linker_list = []
         for cls in classes:
             info = cls.info()
-            linker_list.append(asdict(info))
+            config, _ = models.LinkerConfig.objects.get_or_create(linker_id=info.id)
+            d = asdict(info)
+            d["enabled"] = config.enabled
+            linker_list.append(d)
 
         return Response({"last_commit": last_commit, "linkers": linker_list})
+
+    @action(
+        detail=False,
+        methods=["POST"],
+        permission_classes=[IsAdminUser],
+        url_path="set-linker-enabled",
+    )
+    def set_linker_enabled(self, request: Request) -> Response:
+        linker_id = request.data.get("linker_id")
+        enabled = request.data.get("enabled")
+        if linker_id is None or enabled is None:
+            return Response({"error": "linker_id and enabled required"}, status=400)
+        config, _ = models.LinkerConfig.objects.get_or_create(linker_id=linker_id)
+        config.enabled = (
+            bool(enabled)
+            if isinstance(enabled, bool)
+            else str(enabled).lower() == "true"
+        )
+        config.save()
+        return Response({"linker_id": linker_id, "enabled": config.enabled})
 
     @action(detail=False, methods=["GET"])
     def search(self, request: Request) -> Response:
@@ -90,10 +116,16 @@ class Gallery(viewsets.ViewSet):
             )
 
         class_list = self._all_linker_classes()
-
+        enabled_ids = set(
+            models.LinkerConfig.objects.filter(enabled=True).values_list(
+                "linker_id", flat=True
+            )
+        )
         results = {}
         for cls in class_list:
             info = cls.info()
+            if info.id not in enabled_ids:
+                continue
             r = [asdict(i) for i in cls.search(keyword)]
             results[info.name] = {"info": asdict(info), "results": r}
 

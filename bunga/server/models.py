@@ -3,6 +3,19 @@
 from datetime import timedelta
 
 from django.db import models
+
+
+class LinkerConfig(models.Model):
+    linker_id = models.CharField(max_length=100, unique=True)
+    enabled = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.linker_id} ({'启用' if self.enabled else '禁用'})"
+
+
+from datetime import timedelta
+
+from django.db import models
 from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.auth.models import Permission

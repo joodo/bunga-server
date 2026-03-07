@@ -137,3 +137,9 @@ class ClientLogSerializer(serializers.ModelSerializer):
 class RegisterPayloadSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150, required=True)
     password = serializers.CharField(required=True)
+
+
+class LinkerConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.LinkerConfig
+        fields = ["linker_id", "enabled"]
