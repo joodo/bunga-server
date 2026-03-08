@@ -190,7 +190,7 @@ class Gallery(viewsets.ViewSet):
             raise Exception("No linker found.")
 
         detail = linker.detail(key)
-        Cache.set(cache_key, detail, timeout=5 * 24 * 60 * 60)
+        Cache.set(cache_key, detail, timeout=2 * 60 * 60)
         return detail
 
 
