@@ -77,11 +77,10 @@ class PlayStatus:
             self._play_at = datetime.now()
 
 
-class ChannelStatus(Enum):
-    PAUSED = b"paused"
-    WAITING = b"waiting"
-    PLAYING = b"playing"
-    SEEKING_DURING_PLAYBACK = b"seeking"
+class ChannelStatus(str, Enum):
+    PAUSED = "paused"
+    PENDING = "pending"
+    PLAYING = "playing"
 
 
 class ChannelCache(metaclass=MultitonMeta):
@@ -163,14 +162,39 @@ class ChannelCache(metaclass=MultitonMeta):
     def reset_all_watchers_to_buffering(self) -> None:
         self.redis.delete(self.keys.ready_watchers.raw)
 
-    def set_watcher_status(self, watcher_id: str, is_buffering: bool) -> bool:
-        status_changed = False
-        if is_buffering:
+    def set_watcher_status(self, watcher_id: str, is_pending: bool) -> bool:
+        if is_pending:
             status_changed = self.redis.srem(self.keys.ready_watchers.raw, watcher_id)
         else:
             status_changed = self.redis.sadd(self.keys.ready_watchers.raw, watcher_id)
 
         return status_changed
+
+    # Active watchers
+    def set_watcher_active(self, watcher_id: str) -> None:
+        self.redis.hset(
+            self.keys.watchers_last_active.raw,
+            watcher_id,
+            str(datetime.now().timestamp()),
+        )
+
+    def is_watcher_stale(self, watcher_id: str) -> bool:
+        raw_last_active = self.redis.hget(
+            self.keys.watchers_last_active.raw, watcher_id
+        )
+        if raw_last_active is None:
+            return True
+
+        try:
+            last_active = float(raw_last_active)
+        except (TypeError, ValueError):
+            self.remove_watcher_active_key(watcher_id)
+            return True
+
+        return (datetime.now().timestamp() - last_active) > 5
+
+    def remove_watcher_active_key(self, watcher_id: str):
+        self.redis.hdel(self.keys.watchers_last_active.raw, watcher_id)
 
     @property
     def is_all_watchers_ready(self) -> bool:
@@ -200,8 +224,11 @@ class ChannelCache(metaclass=MultitonMeta):
     # Channel status
     @property
     def channel_status(self) -> ChannelStatus:
-        status = Cache.get(self.keys.channel_status, ChannelStatus.PAUSED)
-        return ChannelStatus(status)
+        try:
+            status = Cache.get(self.keys.channel_status, ChannelStatus.PAUSED)
+            return ChannelStatus(status)
+        except Exception:
+            return ChannelStatus.PAUSED
 
     @channel_status.setter
     def channel_status(self, new_value: ChannelStatus) -> None:
@@ -296,6 +323,7 @@ class ChannelCache(metaclass=MultitonMeta):
         self.clean_projection()
         self.redis.delete(self.keys.clients.raw)
         self.redis.delete(self.keys.watchers.raw)
+        self.redis.delete(self.keys.watchers_last_active.raw)
         self.redis.delete(self.keys.ready_watchers.raw)
         self.redis.delete(self.keys.call_pending_ids.raw)
         self.redis.delete(self.keys.talking_ids.raw)
@@ -330,6 +358,10 @@ class ChannelCache(metaclass=MultitonMeta):
             return self._Key(f"{self.prefix}:ready_watchers")
 
         @property
+        def watchers_last_active(self):
+            return self._Key(f"{self.prefix}:watchers_last_active")
+
+        @property
         def channel_status(self):
             return self._Key(f"{self.prefix}:channel_status")
 
@@ -348,35 +380,3 @@ class ChannelCache(metaclass=MultitonMeta):
         @property
         def talking_ids(self):
             return self._Key(f"{self.prefix}:talking_ids")
-
-
-class SeekCountdownManager:
-    # Seek Countdown Timer, for SEEKING to PLAYING transition
-    _tasks: dict[str, asyncio.Task] = {}
-
-    _countdown_seconds = 5
-
-    @classmethod
-    async def _run_task(cls, channel_id: str, coro):
-        try:
-            await asyncio.sleep(cls._countdown_seconds)
-            await coro
-        except asyncio.CancelledError:
-            pass
-        finally:
-            if cls._tasks.get(channel_id) == asyncio.current_task():
-                cls._tasks.pop(channel_id, None)
-
-    @classmethod
-    def reset(cls, channel_id: str, coro: Awaitable[None]):
-        if channel_id in cls._tasks:
-            cls._tasks[channel_id].cancel()
-
-        task = asyncio.create_task(cls._run_task(channel_id, coro))
-        cls._tasks[channel_id] = task
-
-    @classmethod
-    def cancel(cls, channel_id: str):
-        task = cls._tasks.pop(channel_id, None)
-        if task:
-            task.cancel()

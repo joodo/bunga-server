@@ -4,28 +4,37 @@ from typing import Any
 
 import asyncio
 from channels.consumer import AsyncConsumer
+from channels.layers import get_channel_layer
 
+from server.chat.services.presence_service import ChannelPresenceService
+from server.chat.channel_manager import channel_manager
+from server.chat.schemas import ChannelStatusSchema
+from server.chat.utils import broadcast_message
 from server.chat.services import ChatService
 from server.chat.channel_cache import ChannelCache
 from utils.log import logger
 
 
 class PresenceWorker(AsyncConsumer):
-    async def delayed_offline(self, event: dict[str, Any]) -> None:
-        await asyncio.sleep(3)
 
-        channel_id, user_id = event["channel_id"], event["user_id"]
-        channel_cache = ChannelCache(channel_id)
-        client_name = channel_cache.get_client_name(user_id)
-        if client_name is None:
-            service = ChatService(channel_id)
-            await service.dispatch("bye", user_id, {})
+    async def start_heartbeat(self, event: dict[str, Any]) -> None:
+        if hasattr(self, "is_running"):
+            return
+        self.is_running = True
 
-    async def delayed_clean_channel(self, event: dict[str, Any]) -> None:
-        await asyncio.sleep(5 * 60)
+        while True:
+            for channel_id in channel_manager.channels:
+                if channel_manager.clean_if_stale(channel_id):
+                    continue
 
-        channel_id = event["channel_id"]
-        channel_cache = ChannelCache(channel_id)
-        if not channel_cache.has_client:
-            logger.info(f"No client left, clean channel {channel_id}")
-            channel_cache.reset()
+                await ChannelPresenceService(channel_id).remove_stale_user()
+
+                channel_cache = ChannelCache(channel_id)
+                data = ChannelStatusSchema.from_channel_cache(channel_cache)
+                await broadcast_message(
+                    channel_id,
+                    "channel-status",
+                    data=data,
+                )
+
+            await asyncio.sleep(1)

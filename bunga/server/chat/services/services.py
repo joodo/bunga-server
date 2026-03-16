@@ -29,6 +29,9 @@ class ChatService(metaclass=MultitonMeta):
             sender = self.channel_cache.get_watcher_info(sender_id)
             if sender is None:
                 logger.warning("Unknown sender %s", sender_id)
+                await send_message(
+                    self.channel_id, "who-are-you", receiver_id=sender_id
+                )
                 return None
 
             await func(self, sender, data)
@@ -36,12 +39,14 @@ class ChatService(metaclass=MultitonMeta):
         return wrapper
 
     async def dispatch(self, code: str, sender_id: str, json_data: dict) -> None:
+        self.channel_cache.set_watcher_active(sender_id)
+
         METHOD_MAP = {
             "whats-on": self._handle_whats_on,
             "join-in": self._handle_join_in,
             "start-projection": self._handle_start_projection,
             "bye": self._handle_bye,
-            "buffer-state-changed": self._handle_buffer_state_changed,
+            "client-status": self._handle_buffer_state_changed,
             "play": self._handle_play,
             "pause": self._handle_pause,
             "seek": self._handle_seek,
@@ -128,10 +133,10 @@ class ChatService(metaclass=MultitonMeta):
 
     @_require_watcher
     async def _handle_buffer_state_changed(
-        self, sender: UserInfo, schema_data: BufferStateChangedSchema
+        self, sender: UserInfo, schema_data: ClientStatusSchema
     ) -> None:
-        await self.playback.update_buffer_state(
-            sender=sender, is_buffering=schema_data.is_buffering
+        await self.playback.update_client_state(
+            sender=sender, is_pending=schema_data.is_pending
         )
 
     async def _handle_play(self, _: str, __: None) -> None:

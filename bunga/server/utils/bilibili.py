@@ -154,6 +154,5 @@ _mixinKeyEncTab = [
 
 
 def get_mixin_key(img_key: str, sub_key: str) -> str:
-    print(123, img_key, sub_key)
     orig = img_key + sub_key
     return reduce(lambda s, i: s + orig[i], _mixinKeyEncTab, "")[:32]

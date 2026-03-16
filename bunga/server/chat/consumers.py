@@ -10,17 +10,21 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from server.models import Channel
 from utils.log import logger
 from .services import ChatService
-from .channel_cache import ChannelCache, UserInfo
+from .channel_cache import ChannelCache
+from .channel_manager import channel_manager
 
 
 User = get_user_model()
 
-IgnoreLoggingCode = {"spark"}
+IgnoreLoggingCode = {"spark", "client-status", "channel-status"}
 
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     async def connect(self):
         await self.accept()
+
+        # Start server heartbeat
+        await self.channel_layer.send("presence_worker", {"type": "start_heartbeat"})
 
         self.user_id: str = self.scope["user"].username  # type: ignore
         self.channel: Channel = self.scope["channel"]  # type: ignore
@@ -39,23 +43,9 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(room_group_name, self.channel_name)
 
         self.channel_cache.unregister_client(self.user_id)
-        await self.channel_layer.send(
-            "presence_worker",
-            {
-                "type": "delayed_offline",
-                "user_id": self.user_id,
-                "channel_id": self.channel.channel_id,
-            },
-        )
-        await self.channel_layer.send(
-            "presence_worker",
-            {
-                "type": "delayed_clean_channel",
-                "channel_id": self.channel.channel_id,
-            },
-        )
 
     async def receive_json(self, content: dict, **kwargs):
+        channel_manager.set_active(self.channel.channel_id)
         code = content.pop("code", None)
         if code not in IgnoreLoggingCode:
             logger.info("Received %s data from %s: %s", code, self.user_id, content)

@@ -5,7 +5,7 @@ from datetime import timedelta
 from enum import Enum
 
 from utils.datetime import get_total_microseconds
-from .channel_cache import ChannelCache, PlayStatus, UserInfo, VideoRecord
+from .channel_cache import ChannelCache, ChannelStatus, UserInfo, VideoRecord
 
 
 @dataclass
@@ -72,21 +72,26 @@ class PauseSchema:
 
 
 @dataclass
-class PlayAtSchema:
-    is_play: bool
-    position: int
-
-    @classmethod
-    def from_play_status(cls, play_status: PlayStatus) -> PlayAtSchema:
-        return cls(
-            is_play=play_status.playing,
-            position=get_total_microseconds(play_status.position),
-        )
+class ClientStatusSchema:
+    is_pending: bool
 
 
 @dataclass
-class BufferStateChangedSchema:
-    is_buffering: bool
+class ChannelStatusSchema:
+    watcher_ids: list[str]
+    ready_ids: list[str]
+    position: int
+    play_status: ChannelStatus
+
+    @classmethod
+    def from_channel_cache(cls, cache: ChannelCache) -> ChannelStatusSchema:
+        play_status = cache.play_status
+        return cls(
+            watcher_ids=[w.id for w in cache.watcher_list],
+            ready_ids=list(cache.ready_ids),
+            position=get_total_microseconds(play_status.position),
+            play_status=cache.channel_status,
+        )
 
 
 class CallAction(str, Enum):
@@ -115,10 +120,9 @@ PROTOCOL_MAP = {
     "whats-on": None,
     "now-playing": NowPlayingSchema,
     "join-in": JoinInSchema,
-    "play-at": PlayAtSchema,
     "start-projection": StartProjectionSchema,
     "here-are": HereAreSchema,
-    "buffer-state-changed": BufferStateChangedSchema,
+    "client-status": ClientStatusSchema,
     "play": None,
     "pause": PauseSchema,
     "seek": SeekSchema,

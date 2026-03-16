@@ -29,7 +29,6 @@ class ChannelPresenceService(metaclass=MultitonMeta):
         )
 
         self.state.translate_to(ChannelStatus.PAUSED)
-        await self.playback.broadcast(excludes=[user.id])
 
     async def apply_new_projection(
         self, sharer: UserInfo, data: StartProjectionSchema
@@ -60,6 +59,8 @@ class ChannelPresenceService(metaclass=MultitonMeta):
         )
 
     async def leave_user(self, user_id: str) -> None:
+        self.channel_cache.remove_watcher_active_key(user_id)
+
         info = self.channel_cache.remove_watcher(user_id)
         if info is None:
             return
@@ -67,7 +68,7 @@ class ChannelPresenceService(metaclass=MultitonMeta):
         if self.channel_cache.has_watcher:
             await broadcast_message(channel_id=self.channel_id, code="bye", sender=info)
             if (
-                self.channel_cache.channel_status == ChannelStatus.WAITING
+                self.channel_cache.channel_status == ChannelStatus.PENDING
                 and self.channel_cache.is_all_watchers_ready
             ):
                 # If leaving user is the last buffering one, start playback
@@ -75,3 +76,12 @@ class ChannelPresenceService(metaclass=MultitonMeta):
         else:
             # Pause playback if no watcher left
             self.state.translate_to(ChannelStatus.PAUSED)
+
+    async def remove_stale_user(self) -> None:
+        stale_ids = [
+            id
+            for id in self.channel_cache.watcher_ids
+            if self.channel_cache.is_watcher_stale(id)
+        ]
+        for id in stale_ids:
+            await self.leave_user(id)
