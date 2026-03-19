@@ -39,7 +39,7 @@ cd bunga-server/bunga
 Create your local settings file from the template and update the required credentials (DB, Secret Keys, etc.):
 
 ```bash
-cp bunga/local_settings.template.py bunga/bunga/local_settings.py
+cp bunga/local_settings.template.py bunga/local_settings.py
 nano bunga/local_settings.py  # Fill in the required information
 ```
 
