@@ -36,7 +36,8 @@ cd bunga-server/bunga
 
 2. **Configure Environment:**
 
-Create your local settings file from the template and update the required credentials (DB, Secret Keys, etc.):
+Create your local settings file from the template and update the required credentials (DB, Secret Keys, etc.).
+You can also set `SERVER_PORT` there to control the service port (default: 8000).
 
 ```bash
 cp bunga/local_settings.template.py bunga/local_settings.py
@@ -44,7 +45,6 @@ nano bunga/local_settings.py  # Fill in the required information
 ```
 
 3. **Deploy:**
-   Create a `.env` file in the root directory:
 
 ```bash
 chmod +x manage.sh
@@ -68,13 +68,13 @@ git pull
 
 ### Restful API
 
-- **Endpoint**: `http://your-server-ip:8000/api`
+- **Endpoint**: `http://your-server-ip:<SERVER_PORT>/api` (default `8000`)
 
 See [API view](/bunga/server/views/api.py) for more details.
 
 ### WebSocket
 
-- **WebSocket**: `http://your-server-ip:8000/chat`
+- **WebSocket**: `http://your-server-ip:<SERVER_PORT>/chat` (default `8000`)
 
 See [Schema File](/bunga/server/chat/schemas.py) for more details.
 

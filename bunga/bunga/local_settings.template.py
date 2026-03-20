@@ -1,4 +1,4 @@
-# Rename this file to 'settings_local.py' and adjust the settings as needed.
+# Rename this file to 'local_settings.py' and adjust the settings as needed.
 
 
 SECRET_KEY = "YOUR_SECRET_KEY"
@@ -6,6 +6,9 @@ SECRET_KEY = "YOUR_SECRET_KEY"
 
 DEBUG = False
 USE_DEBUG_TOOLBAR = False
+
+# Gunicorn service port for manage.sh
+SERVER_PORT = 8000
 
 # Redis host
 REDIS_HOST = {"host": "localhost", "port": 6379}

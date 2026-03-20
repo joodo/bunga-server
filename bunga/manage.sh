@@ -4,8 +4,22 @@
 APP_NAME="bunga"
 WEB_PID="web.pid"
 WORKER_PID="worker.pid"
+DEFAULT_SERVER_PORT="8000"
+BIND_HOST="0.0.0.0"
 
 # --- Functions ---
+
+resolve_server_port() {
+    local server_port
+    server_port=$(uv run python -c "from bunga.local_settings import SERVER_PORT; print(int(SERVER_PORT))" 2>/dev/null)
+
+    if [ -z "$server_port" ]; then
+        echo "WARNING: SERVER_PORT not found in bunga/local_settings.py. Use default ${DEFAULT_SERVER_PORT}." >&2
+        server_port="$DEFAULT_SERVER_PORT"
+    fi
+
+    echo "$server_port"
+}
 
 # Stop all running services
 stop_services() {
@@ -29,15 +43,20 @@ stop_services() {
 # Start all services in background
 start_services() {
     echo "Starting $APP_NAME services..."
+    local server_port
+    server_port=$(resolve_server_port)
 
     # 1. Start Gunicorn (ASGI)
     # Using uvicorn worker to handle WebSocket and HTTP
-    uv run gunicorn --daemon \
-        --bind 0.0.0.0:8000 \
+    if ! uv run gunicorn --daemon \
+        --bind "${BIND_HOST}:${server_port}" \
         -k uvicorn.workers.UvicornWorker \
         --pid $WEB_PID \
-        $APP_NAME.asgi:application
-    echo "Gunicorn (ASGI) started at port 8000."
+        $APP_NAME.asgi:application; then
+        echo "Failed to start Gunicorn."
+        return 1
+    fi
+    echo "Gunicorn (ASGI) started at ${BIND_HOST}:${server_port}."
 
     # 2. Start Presence Worker
     # Running presence_worker for real-time synchronization
