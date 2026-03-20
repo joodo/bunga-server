@@ -80,7 +80,7 @@ function startPulling() {
 
   pullTimer = setInterval(async () => {
     const response = await fetch(
-      `${window.URLS["bili:pull"]}?key=${qrcodeKey}`
+      `${window.URLS["bili:pull"]}?key=${qrcodeKey}`,
     );
     if (!response.ok) {
       throw new Error(`Response status: ${response.status}`);
@@ -135,7 +135,7 @@ async function fetchBilibiliInfo(force = false) {
   if (!sess) return;
 
   const response = await fetch(
-    `${window.URLS["bili:info"]}?sess=${sess}${force ? "&force" : ""}`
+    `${window.URLS["bili:info"]}?sess=${sess}${force ? "&force" : ""}`,
   );
   if (!response.ok) {
     console.warn("cannot load bilibili user info:");
@@ -155,7 +155,7 @@ async function fetchAListInfo() {
   if (!username || !password) return;
 
   const response = await fetch(
-    `${url}?username=${username}&password=${password}`
+    `${url}?username=${username}&password=${password}`,
   );
   const data = await response.json();
 
@@ -170,10 +170,7 @@ async function fetchAListInfo() {
     if (permission === "admin") {
       permissionContent = '<span class="badge text-bg-success">管理员</span>';
     } else {
-      const permissions = [
-        { mask: 0b0000001000, title: "创建目录或上传" },
-        { mask: 0b0100000000, title: "Webdav 读取" },
-      ];
+      const permissions = [{ mask: 0b0000001000, title: "创建目录或上传" }];
       for (const item of permissions) {
         if ((item.mask & permission) > 0) {
           permissionContent += `<span class="badge text-bg-success mx-1">${item.title}</span>`;
