@@ -66,18 +66,18 @@ deploy_project() {
     fi
     # --- End of Check ---
 
-    stop_services
+    stop_services || return 1
     
     echo "Syncing dependencies with uv..."
-    uv sync --frozen
+    uv sync --frozen || return 1
     
     echo "Running database migrations..."
-    uv run python manage.py migrate
+    uv run python manage.py migrate || return 1
     
     echo "Collecting static files for WhiteNoise..."
-    uv run python manage.py collectstatic --noinput
+    uv run python manage.py collectstatic --noinput || return 1
     
-    start_services
+    start_services || return 1
 
     # First-time initialization check
     if [ ! -f .initialized ]; then
@@ -85,8 +85,12 @@ deploy_project() {
         echo "💡 FIRST RUN DETECTED!"
         echo "Creating superuser for Django Admin..."
         # This will be interactive
-        uv run python manage.py createsuperuser
-        touch .initialized
+        if uv run python manage.py createsuperuser; then
+            touch .initialized
+        else
+            echo "❌ Superuser creation failed. Skip creating .initialized."
+            return 1
+        fi
     fi
     echo "✅ Deployment finished successfully."
 }
