@@ -3,6 +3,8 @@
 import time
 
 from django.core.cache import cache as Cache, caches as Caches
+
+from utils.log import logger
 from .channel_cache import ChannelCache
 
 
@@ -31,6 +33,7 @@ class ChannelManager:
 
             raise Exception("staled")
         except:
+            logger.info(f"Clean staled channel {channel_id}")
             self.redis.hdel(self._channels_key, channel_id)
             channel_cache.reset()
             return True

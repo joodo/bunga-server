@@ -4,15 +4,12 @@ from typing import Any
 
 import asyncio
 from channels.consumer import AsyncConsumer
-from channels.layers import get_channel_layer
 
 from server.chat.services.presence_service import ChannelPresenceService
 from server.chat.channel_manager import channel_manager
 from server.chat.schemas import ChannelStatusSchema
 from server.chat.utils import broadcast_message
-from server.chat.services import ChatService
 from server.chat.channel_cache import ChannelCache
-from utils.log import logger
 
 
 class PresenceWorker(AsyncConsumer):

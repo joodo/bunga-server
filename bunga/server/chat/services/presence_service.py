@@ -1,6 +1,7 @@
 # PEP-8
 
 from utils.datetime import get_total_microseconds
+from utils.log import logger
 from ..utils import broadcast_message
 from ..schemas import StartProjectionSchema
 from ..multition_meta import MultitonMeta
@@ -84,4 +85,5 @@ class ChannelPresenceService(metaclass=MultitonMeta):
             if self.channel_cache.is_watcher_stale(id)
         ]
         for id in stale_ids:
+            logger.info(f"Clean staled user {id}")
             await self.leave_user(id)
