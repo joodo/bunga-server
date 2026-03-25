@@ -106,7 +106,7 @@ class ChannelCache(metaclass=MultitonMeta):
         return self.redis.hget(self.keys.clients.raw, user_id)
 
     @property
-    def has_client(self):
+    def has_client(self) -> bool:
         return self.redis.hlen(self.keys.clients.raw) > 0
 
     # Watcher info

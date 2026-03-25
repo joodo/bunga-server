@@ -20,24 +20,20 @@ class ChannelManager:
         self.redis.hset(self._channels_key, channel_id, str(time.time()))
 
     def clean_if_stale(self, channel_id: str) -> bool:
-        raw_last_active = self.redis.hget(self._channels_key, channel_id)
-        if raw_last_active is None:
-            ChannelCache(channel_id).reset()
-            return True
-
+        channel_cache = ChannelCache(channel_id)
         try:
-            last_active = float(raw_last_active)
-        except (TypeError, ValueError):
+            if channel_cache.has_client:
+                return False
+
+            raw_last_active = self.redis.hget(self._channels_key, channel_id)
+            if (time.time() - raw_last_active) <= self._stale_seconds:
+                return False
+
+            raise Exception("staled")
+        except:
             self.redis.hdel(self._channels_key, channel_id)
-            ChannelCache(channel_id).reset()
+            channel_cache.reset()
             return True
-
-        if (time.time() - last_active) <= self._stale_seconds:
-            return False
-
-        self.redis.hdel(self._channels_key, channel_id)
-        ChannelCache(channel_id).reset()
-        return True
 
     @property
     def channels(self) -> list[str]:
