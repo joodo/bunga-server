@@ -28,7 +28,8 @@ class ChannelManager:
                 return False
 
             raw_last_active = self.redis.hget(self._channels_key, channel_id)
-            if (time.time() - raw_last_active) <= self._stale_seconds:
+            last_active = float(raw_last_active)
+            if (time.time() - last_active) <= self._stale_seconds:
                 return False
 
             raise Exception("staled")
