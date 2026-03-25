@@ -135,23 +135,23 @@ class ChatService(metaclass=MultitonMeta):
     async def _handle_buffer_state_changed(
         self, sender: UserInfo, schema_data: ClientStatusSchema
     ) -> None:
-        await self.playback.update_client_state(
+        self.playback.update_client_state(
             sender=sender, is_pending=schema_data.is_pending
         )
 
     async def _handle_play(self, _: str, __: None) -> None:
-        await self.playback.on_play_request()
+        self.playback.on_play_request()
 
     @_require_watcher
     async def _handle_pause(self, sender: UserInfo, schema_data: PauseSchema) -> None:
-        await self.playback.on_pause_request(sender, schema_data.delta)
+        self.playback.on_pause_request(sender, schema_data.delta)
 
     @_require_watcher
     async def _handle_seek(self, sender: UserInfo, schema_data: SeekSchema) -> None:
-        await self.playback.seek_to(sender, schema_data.delta)
+        self.playback.seek_to(sender, schema_data.delta)
 
     async def _handle_play_finished(self, *_, **__) -> None:
-        await self.playback.finish_playing()
+        self.playback.finish_playing()
 
     async def _handle_call(self, sender_id: str, schema_data: CallSchema) -> None:
         match schema_data.action:

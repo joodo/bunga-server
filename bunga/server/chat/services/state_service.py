@@ -16,7 +16,7 @@ class ChannelStateService(metaclass=MultitonMeta):
             (ChannelStatus.PLAYING, ChannelStatus.PAUSED): self._on_pause_playback,
             (ChannelStatus.PENDING, ChannelStatus.PAUSED): self._on_pause_playback,
             # WAITING <-> PLAYING
-            (ChannelStatus.PLAYING, ChannelStatus.PENDING): self._on_client_buffer,
+            (ChannelStatus.PLAYING, ChannelStatus.PENDING): self._on_client_pending,
             (ChannelStatus.PENDING, ChannelStatus.PLAYING): self._on_all_clients_ready,
             # PAUSED -> WAITING / PLAYING
             (ChannelStatus.PAUSED, ChannelStatus.PENDING): None,
@@ -37,7 +37,7 @@ class ChannelStateService(metaclass=MultitonMeta):
     def _on_pause_playback(self) -> None:
         self.channel_cache.set_play(False)
 
-    def _on_client_buffer(self) -> None:
+    def _on_client_pending(self) -> None:
         self.channel_cache.set_play(False)
 
     def _on_all_clients_ready(self) -> None:
