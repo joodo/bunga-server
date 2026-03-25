@@ -64,10 +64,12 @@ class SeekSchema:
 
 @dataclass
 class PauseSchema:
-    position: int
+    position: int | None
 
     @property
-    def delta(self) -> timedelta:
+    def delta(self) -> timedelta | None:
+        if not self.position:
+            return None
         return timedelta(microseconds=float(self.position))
 
 

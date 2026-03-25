@@ -32,11 +32,12 @@ class ChannelPlaybackService(metaclass=MultitonMeta):
             return
         self._evaluate_to_play()
 
-    def on_pause_request(self, sender: UserInfo, position: timedelta):
-        self.channel_cache.set_position(position)
+    def on_pause_request(self, position: timedelta | None):
+        if position:
+            self.channel_cache.set_position(position)
         self.state.translate_to(ChannelStatus.PAUSED)
 
-    def seek_to(self, sender: UserInfo, position: timedelta) -> None:
+    def seek_to(self, position: timedelta) -> None:
         self.channel_cache.set_position(position)
 
     def finish_playing(self) -> None:
