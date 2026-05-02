@@ -12,6 +12,8 @@ class ChannelVoiceCallService(metaclass=MultitonMeta):
         self.channel_cache = ChannelCache(channel_id)
 
     async def on_call(self, caller_id: str) -> None:
+        await self.on_accept()
+        return
         if self.channel_cache.has_pending_call or self.channel_cache.is_talking:
             await self.on_accept()
         else:
